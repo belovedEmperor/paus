@@ -1,39 +1,13 @@
 use std::error::Error;
-use tokio::net::{UnixListener, UnixStream};
+use tokio::{
+    io::{AsyncBufReadExt, AsyncWriteExt},
+    net::{UnixListener, UnixStream},
+};
 
-pub enum Phase {
-    Idle,
-    Focusing,
-    Breaking,
-}
-
-#[derive(Clone)]
-pub enum BreakRatio {
-    Lazy = 2,
-    Standard = 3,
-    Industrious = 4,
-    Hard = 5,
-    Grinding = 6,
-}
-
-pub struct State {
-    pub phase: Phase,
-    pub phase_started_at_seconds: u64,
-    pub total_focused_seconds: u64,
-    pub total_breaked_seconds: u64,
-    pub balance: i128,
-    pub break_ratio: BreakRatio,
-}
+use crate::stopwatch::{BreakRatio, StopwatchState};
 
 pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
-    let mut state = State {
-        phase: Phase::Idle,
-        phase_started_at_seconds: 0,
-        total_focused_seconds: 300,
-        total_breaked_seconds: 120,
-        balance: 0,
-        break_ratio: BreakRatio::Standard,
-    };
+    let mut state = StopwatchState::new(0, 0, BreakRatio::Standard);
 
     let runtime_dir = dirs::runtime_dir().ok_or_else(|| "Failed to find runtime dir")?;
     let listener = UnixListener::bind(runtime_dir.join("paus.sock"))?;
@@ -41,7 +15,9 @@ pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
     loop {
         match listener.accept().await {
             Ok((stream, _)) => {
-                println!("YES!");
+                if let Err(error) = handle_connection(stream, &mut state).await {
+                    eprintln!("connection error: {error}");
+                }
             }
             Err(error) => {
                 eprintln!("NOPE?! {error}")
@@ -52,6 +28,87 @@ pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-async fn handle_connection(stream: UnixStream, state: &mut State) -> Result<(), Box<dyn Error>> {
+#[derive(serde::Deserialize)]
+struct Request {
+    command: String,
+}
+
+#[derive(serde::Serialize)]
+struct Response {
+    ok: bool,
+    message: String,
+}
+
+async fn handle_connection(
+    stream: UnixStream,
+    state: &mut StopwatchState,
+) -> Result<(), Box<dyn Error>> {
+    let (reader, mut writer) = stream.into_split();
+
+    let mut buffer_reader = tokio::io::BufReader::new(reader);
+
+    let mut line = String::new();
+    buffer_reader.read_line(&mut line).await?;
+
+    let request: Request = serde_json::from_str(&line)?;
+
+    let response = match request.command.as_str() {
+        "status" => {
+            state.update_times();
+            let stopwatch_status = state.get_stopwatch_status();
+
+            Response {
+                ok: true,
+                message: format!(
+                    "focus {}, breaks {}, balance {}",
+                    stopwatch_status.focused_seconds,
+                    stopwatch_status.breaked_seconds,
+                    stopwatch_status.balance
+                ),
+            }
+        }
+        "focus" => {
+            state.start_focus();
+
+            Response {
+                ok: true,
+                message: "started focusing".to_owned(),
+            }
+        }
+        "break" => {
+            state.start_break();
+
+            Response {
+                ok: true,
+                message: "started breaking".to_owned(),
+            }
+        }
+        "pause" => {
+            state.pause();
+
+            Response {
+                ok: true,
+                message: "paused".to_owned(),
+            }
+        }
+        "unpause" => {
+            state.unpause();
+
+            Response {
+                ok: true,
+                message: "unpaused".to_owned(),
+            }
+        }
+        unknown => Response {
+            ok: false,
+            message: format!("unknown command: {unknown}"),
+        },
+    };
+
+    let mut json = serde_json::to_string(&response)?;
+    json.push('\n');
+
+    writer.write_all(json.as_bytes()).await?;
+
     Ok(())
 }

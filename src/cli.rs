@@ -1,4 +1,9 @@
-use crate::server::{State, run_daemon};
+use tokio::{
+    io::{AsyncBufReadExt, AsyncWriteExt},
+    net::UnixStream,
+};
+
+use crate::server::run_daemon;
 use std::error::Error;
 
 #[derive(clap::Parser)]
@@ -16,6 +21,11 @@ pub enum Commands {
         #[command(subcommand)]
         action: DaemonAction,
     },
+    Status,
+    Focus,
+    Break,
+    Pause,
+    Unpause,
 }
 
 #[derive(clap::Subcommand)]
@@ -26,6 +36,26 @@ pub enum DaemonAction {
 pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
     match &cli.command {
         Some(Commands::Daemon { action }) => handle_daemon(action).await?,
+        Some(Commands::Status) => {
+            let response = send_command("status").await?;
+            print!("{response}");
+        }
+        Some(Commands::Focus) => {
+            let response = send_command("focus").await?;
+            print!("{response}");
+        }
+        Some(Commands::Break) => {
+            let response = send_command("break").await?;
+            print!("{response}");
+        }
+        Some(Commands::Pause) => {
+            let response = send_command("pause").await?;
+            print!("{response}");
+        }
+        Some(Commands::Unpause) => {
+            let response = send_command("unpause").await?;
+            print!("{response}");
+        }
         None => {}
     }
 
@@ -40,29 +70,16 @@ pub async fn handle_daemon(action: &DaemonAction) -> Result<(), Box<dyn Error>> 
     Ok(())
 }
 
-pub fn calculate_balance(state: &mut State) -> i128 {
-    let balance = (Into::<i128>::into(state.total_focused_seconds)
-        / state.break_ratio.clone() as i128)
-        - Into::<i128>::into(state.total_breaked_seconds);
+async fn send_command(command: &str) -> Result<String, Box<dyn Error>> {
+    let runtime_dir = dirs::runtime_dir().ok_or("no runtime dir")?;
+    let mut stream = UnixStream::connect(runtime_dir.join("paus.sock")).await?;
 
-    set_balance(state, balance);
+    let request = format!("{{\"command\":\"{command}\"}}\n");
+    stream.write_all(request.as_bytes()).await?;
 
-    balance
-}
+    let mut reader = tokio::io::BufReader::new(stream);
+    let mut response = String::new();
+    reader.read_line(&mut response).await?;
 
-pub fn set_balance(state: &mut State, balance: i128) {
-    state.balance = balance;
-}
-
-pub fn status(state: &State, balance_seconds: i128) {
-    let _ = format!(
-        "focus_emoji {} | break_emoji {} | balance_emoji {}",
-        to_minutes(state.total_focused_seconds.into()),
-        to_minutes(state.total_breaked_seconds.into()),
-        to_minutes(balance_seconds)
-    );
-}
-
-fn to_minutes(seconds: i128) -> i128 {
-    seconds / 60
+    Ok(response)
 }
