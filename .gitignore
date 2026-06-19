@@ -1,0 +1,7 @@
+target
+
+.env
+
+Session.vim
+.direnv
+.envrc
