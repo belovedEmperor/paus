@@ -82,21 +82,21 @@ pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
                         || stopwatch_status.phase == Phase::Focusing))
             {
                 parts.push(format!(
-                    "⏰{:02}:{:02}",
+                    "⏰ {:02}:{:02}",
                     stopwatch_status.focused_seconds / 60,
                     stopwatch_status.focused_seconds % 60
                 ));
             }
             if *breaks || (dynamic && stopwatch_status.phase == Phase::Breaking) {
                 parts.push(format!(
-                    "🏖️{:02}:{:02}",
+                    "🏖️ {:02}:{:02}",
                     stopwatch_status.breaked_seconds / 60,
                     stopwatch_status.breaked_seconds % 60
                 ));
             }
             if *balance || dynamic {
                 parts.push(format!(
-                    "⚖️{:02}:{:02}",
+                    "⚖️ {:02}:{:02}",
                     stopwatch_status.balance / 60,
                     stopwatch_status.balance % 60
                 ));
