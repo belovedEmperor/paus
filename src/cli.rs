@@ -1,5 +1,6 @@
+use serde_json::json;
 use tokio::{
-    io::{AsyncBufReadExt, AsyncWriteExt},
+    io::{AsyncBufReadExt as _, AsyncWriteExt as _},
     net::UnixStream,
 };
 
@@ -33,6 +34,7 @@ pub enum Commands {
 #[derive(clap::Subcommand)]
 pub enum DaemonAction {
     Run,
+    Stop,
 }
 
 pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
@@ -75,6 +77,10 @@ pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
 pub async fn handle_daemon(action: &DaemonAction) -> Result<(), Box<dyn Error>> {
     match action {
         DaemonAction::Run => run_daemon().await?,
+        DaemonAction::Stop => {
+            let response = send_command("daemon-stop").await?;
+            print!("{response}");
+        }
     }
 
     Ok(())
@@ -84,7 +90,8 @@ async fn send_command(command: &str) -> Result<String, Box<dyn Error>> {
     let runtime_dir = dirs::runtime_dir().ok_or("no runtime dir")?;
     let mut stream = UnixStream::connect(runtime_dir.join("paus.sock")).await?;
 
-    let request = format!("{{\"command\":\"{command}\"}}\n");
+    let mut request = serde_json::to_string(&json!({ "command": command }))?;
+    request.push('\n');
     stream.write_all(request.as_bytes()).await?;
 
     let mut reader = tokio::io::BufReader::new(stream);

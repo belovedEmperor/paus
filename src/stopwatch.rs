@@ -1,15 +1,18 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    error::Error,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum Phase {
     Idle,
     Focusing,
     Breaking,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum BreakRatio {
     Lazy = 2,
     Standard = 3,
@@ -18,6 +21,7 @@ pub enum BreakRatio {
     Grinding = 6,
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct StopwatchState {
     pub is_paused: bool,
     pub phase: Phase,
@@ -41,24 +45,42 @@ pub fn calculate_balance(state: &StopwatchState) -> i128 {
         - Into::<i128>::into(state.total_breaked_seconds)
 }
 
-fn to_minutes(seconds: i128) -> i128 {
-    seconds / 60
-}
-
 impl StopwatchState {
-    pub fn new(
-        total_focused_seconds: u64,
-        total_breaked_seconds: u64,
-        break_ratio: BreakRatio,
-    ) -> Self {
+    pub fn new(break_ratio: BreakRatio) -> Self {
         Self {
             is_paused: true,
             phase: Phase::Idle,
             phase_started_at_seconds: now_seconds(),
-            total_focused_seconds,
-            total_breaked_seconds,
+            total_focused_seconds: 0,
+            total_breaked_seconds: 0,
             break_ratio,
         }
+    }
+
+    pub fn try_read_state() -> Result<StopwatchState, Box<dyn Error>> {
+        let share_dir = dirs::data_local_dir().ok_or("Failed to find local share dir")?;
+
+        let bytes = std::fs::read(share_dir.join("paus/state.json"))?;
+
+        let mut state: StopwatchState = serde_json::from_slice(&bytes)?;
+
+        state.is_paused = true;
+        state.phase_started_at_seconds = now_seconds();
+
+        Ok(state)
+    }
+
+    pub fn try_save_state(&self) -> Result<(), Box<dyn Error>> {
+        let share_dir = dirs::data_local_dir().ok_or("Failed to find local share dir")?;
+        let path = share_dir.join("paus/state.json");
+
+        std::fs::create_dir_all(path.parent().ok_or("Failed to get ~/.local/share/paus")?)?;
+
+        let bytes = serde_json::to_vec(self)?;
+
+        std::fs::write(path, bytes)?;
+
+        Ok(())
     }
 
     pub fn update_times(&mut self) {
@@ -146,4 +168,24 @@ pub fn now_seconds() -> u64 {
         .duration_since(UNIX_EPOCH)
         .expect("Current system time should be after 1970-01-01 00:00:00 UTC")
         .as_secs()
+}
+
+fn to_minutes_u64(seconds: u64) -> u64 {
+    seconds / 60
+}
+
+fn to_minutes_i128(seconds: i128) -> i128 {
+    seconds / 60
+}
+
+impl StopwatchStatus {
+    pub fn to_minutes(&self) -> Self {
+        Self {
+            is_paused: self.is_paused,
+            phase: self.phase.clone(),
+            focused_seconds: to_minutes_u64(self.focused_seconds),
+            breaked_seconds: to_minutes_u64(self.breaked_seconds),
+            balance: to_minutes_i128(self.balance),
+        }
+    }
 }
