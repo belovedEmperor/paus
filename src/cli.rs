@@ -26,8 +26,6 @@ pub enum Commands {
         action: DaemonAction,
     },
     Status {
-        #[arg(short, long)]
-        dynamic: bool,
         #[arg(long)]
         focus: bool,
         #[arg(long)]
@@ -53,7 +51,6 @@ pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
     match &cli.command {
         Some(Commands::Daemon { action }) => handle_daemon(action).await?,
         Some(Commands::Status {
-            dynamic,
             focus,
             breaks,
             balance,
