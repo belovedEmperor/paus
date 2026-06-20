@@ -5,7 +5,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Phase {
     Idle,
     Focusing,
@@ -40,12 +40,17 @@ pub struct StopwatchStatus {
     pub balance: i128,
 }
 
+/// Returns earned break time minus break time taken, in seconds.
+///
+/// Earned break time is `total_focused_seconds / break_ratio`.
+/// Positive = break time remaining; negative = break ran over.
 pub fn calculate_balance(state: &StopwatchState) -> i128 {
     (Into::<i128>::into(state.total_focused_seconds) / state.break_ratio.clone() as i128)
         - Into::<i128>::into(state.total_breaked_seconds)
 }
 
 impl StopwatchState {
+    /// Creates a new, paused [`StopwatchState`] in [`Phase::Idle`] with zeroed totals.
     pub fn new(break_ratio: BreakRatio) -> Self {
         Self {
             is_paused: true,
@@ -57,6 +62,15 @@ impl StopwatchState {
         }
     }
 
+    /// Loads persisted state from `~/.local/share/paus/state.json`.
+    ///
+    /// On success the stopwatch is reset to paused and the phase timer restarted,
+    /// so time accumulated between shutdown and now is not counted.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the data directory is not found, the file cannot be read,
+    /// or the JSON cannot be deserialized.
     pub fn try_read_state() -> Result<Self, Box<dyn Error>> {
         let share_dir = dirs::data_local_dir().ok_or("Failed to find local share dir")?;
 
@@ -70,6 +84,12 @@ impl StopwatchState {
         Ok(state)
     }
 
+    /// Persists the current state to `~/.local/share/paus/state.json`, creating the directory if needed.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the data directory is not found, the directory cannot be created,
+    /// JSON serialization fails, or the file cannot be written.
     pub fn try_save_state(&self) -> Result<(), Box<dyn Error>> {
         let share_dir = dirs::data_local_dir().ok_or("Failed to find local share dir")?;
         let path = share_dir.join("paus/state.json");
@@ -83,6 +103,9 @@ impl StopwatchState {
         Ok(())
     }
 
+    /// Adds elapsed time since the last update to the running phase total and resets the phase timer.
+    ///
+    /// No-op if paused or in [`Phase::Idle`].
     pub fn update_times(&mut self) {
         let elapsed_seconds = self.get_elapsed_seconds();
 
@@ -99,6 +122,9 @@ impl StopwatchState {
         self.phase_started_at_seconds = now_seconds();
     }
 
+    /// Returns seconds elapsed in the current phase since the last update.
+    ///
+    /// Returns `0` if paused.
     pub fn get_elapsed_seconds(&self) -> u64 {
         if self.is_paused {
             0
@@ -107,18 +133,21 @@ impl StopwatchState {
         }
     }
 
+    /// Commits accumulated time, unpauses, and switches to [`Phase::Focusing`].
     pub fn start_focus(&mut self) {
         self.update_times();
         self.unpause();
         self.phase = Phase::Focusing;
     }
 
+    /// Commits accumulated time, unpauses, and switches to [`Phase::Breaking`].
     pub fn start_break(&mut self) {
         self.update_times();
         self.unpause();
         self.phase = Phase::Breaking;
     }
 
+    /// Switches between focus and break. Starts focusing from idle or break; starts a break from focus.
     pub fn toggle_phase(&mut self) {
         match self.phase {
             Phase::Idle | Phase::Breaking => self.start_focus(),
@@ -126,6 +155,7 @@ impl StopwatchState {
         }
     }
 
+    /// Pauses the stopwatch, committing elapsed time first. No-op if already paused.
     pub fn pause(&mut self) {
         if self.is_paused {
             return;
@@ -135,6 +165,7 @@ impl StopwatchState {
         self.is_paused = true;
     }
 
+    /// Unpauses the stopwatch, resetting the phase timer to now. No-op if not paused.
     pub fn unpause(&mut self) {
         if !self.is_paused {
             return;
@@ -144,6 +175,7 @@ impl StopwatchState {
         self.is_paused = false;
     }
 
+    /// Toggles between paused and unpaused.
     pub fn toggle_pause(&mut self) {
         if self.is_paused {
             self.unpause();
@@ -152,6 +184,7 @@ impl StopwatchState {
         }
     }
 
+    /// Returns a snapshot of current totals and balance without mutating state.
     pub fn get_stopwatch_status(&self) -> StopwatchStatus {
         StopwatchStatus {
             is_paused: self.is_paused,
@@ -163,6 +196,7 @@ impl StopwatchState {
     }
 }
 
+/// Returns the current Unix timestamp in whole seconds.
 pub fn now_seconds() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -171,6 +205,7 @@ pub fn now_seconds() -> u64 {
 }
 
 impl StopwatchStatus {
+    /// Returns a copy with all time fields converted from seconds to minutes (truncating).
     pub fn to_minutes(&self) -> Self {
         Self {
             is_paused: self.is_paused,
@@ -182,10 +217,12 @@ impl StopwatchStatus {
     }
 }
 
+/// Converts a `u64` second count to whole minutes.
 fn to_minutes_u64(seconds: u64) -> u64 {
     seconds / 60
 }
 
+/// Converts a signed second count to whole minutes (truncates toward zero).
 fn to_minutes_i128(seconds: i128) -> i128 {
     seconds / 60
 }

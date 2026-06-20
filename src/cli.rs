@@ -47,6 +47,11 @@ pub enum DaemonAction {
     Stop,
 }
 
+/// Dispatches the parsed CLI command to the appropriate handler.
+///
+/// # Errors
+///
+/// Returns an error if any command fails (daemon I/O, socket communication, or JSON parsing).
 pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
     match &cli.command {
         Some(Commands::Daemon { action }) => handle_daemon(action).await?,
@@ -131,6 +136,11 @@ pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+/// Handles `daemon` subcommands: starts the daemon or sends a stop request.
+///
+/// # Errors
+///
+/// Returns an error if starting the daemon fails or the stop command cannot be sent.
 pub async fn handle_daemon(action: &DaemonAction) -> Result<(), Box<dyn Error>> {
     match action {
         DaemonAction::Run => run_daemon().await?,
@@ -143,6 +153,12 @@ pub async fn handle_daemon(action: &DaemonAction) -> Result<(), Box<dyn Error>> 
     Ok(())
 }
 
+/// Sends a JSON command to the running daemon over a Unix socket and returns the raw response line.
+///
+/// # Errors
+///
+/// Returns an error if the runtime directory is unavailable, the socket connection fails,
+/// or reading/writing to the stream fails.
 async fn send_command(command: &str) -> Result<String, Box<dyn Error>> {
     let runtime_dir = dirs::runtime_dir().ok_or("no runtime dir")?;
     let mut stream = UnixStream::connect(runtime_dir.join("paus.sock")).await?;

@@ -10,6 +10,13 @@ use crate::{
     stopwatch::{Phase, StopwatchState},
 };
 
+/// Starts the daemon: binds a Unix socket, loads or initializes state,
+/// and handles incoming connections until a stop command or signal is received.
+///
+/// # Errors
+///
+/// Returns an error if the socket cannot be bound, signals cannot be registered,
+/// or state persistence fails.
 pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
     let mut state = match StopwatchState::try_read_state() {
         Ok(state) => state,
@@ -70,6 +77,13 @@ enum ConnectionOkResult {
     Stop,
 }
 
+/// Reads a single JSON command from the stream, updates stopwatch state, and writes back a JSON response.
+///
+/// Returns [`ConnectionOkResult::Stop`] when the daemon should shut down after this connection.
+///
+/// # Errors
+///
+/// Returns an error if reading/writing the stream fails or JSON (de)serialization fails.
 async fn handle_connection(
     stream: UnixStream,
     state: &mut StopwatchState,
