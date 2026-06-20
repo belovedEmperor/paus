@@ -5,7 +5,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub enum Phase {
     Idle,
     Focusing,
@@ -31,7 +31,7 @@ pub struct StopwatchState {
     pub break_ratio: BreakRatio,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct StopwatchStatus {
     pub is_paused: bool,
     pub phase: Phase,

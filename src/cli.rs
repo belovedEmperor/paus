@@ -4,7 +4,10 @@ use tokio::{
     net::UnixStream,
 };
 
-use crate::server::run_daemon;
+use crate::{
+    server::run_daemon,
+    stopwatch::{Phase, StopwatchStatus},
+};
 use std::error::Error;
 
 #[derive(clap::Parser)]
@@ -22,7 +25,16 @@ pub enum Commands {
         #[command(subcommand)]
         action: DaemonAction,
     },
-    Status,
+    Status {
+        #[arg(short, long)]
+        dynamic: bool,
+        #[arg(long)]
+        focus: bool,
+        #[arg(long)]
+        breaks: bool,
+        #[arg(long)]
+        balance: bool,
+    },
     Focus,
     Break,
     TogglePhase,
@@ -40,9 +52,45 @@ pub enum DaemonAction {
 pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
     match &cli.command {
         Some(Commands::Daemon { action }) => handle_daemon(action).await?,
-        Some(Commands::Status) => {
-            let response = send_command("status").await?;
-            print!("{response}");
+        Some(Commands::Status {
+            dynamic,
+            focus,
+            breaks,
+            balance,
+        }) => {
+            let raw = send_command("status").await?;
+            let value: serde_json::Value = serde_json::from_str(&raw)?;
+            let stopwatch_status: StopwatchStatus =
+                serde_json::from_value(value.get("data").ok_or("no data")?.clone())?;
+
+            let stopwatch_status = stopwatch_status.to_minutes();
+            let icon = if stopwatch_status.is_paused {
+                "⏸"
+            } else {
+                "▶"
+            };
+
+            let mut parts = vec![];
+
+            let dynamic = !focus && !breaks && !balance;
+
+            if *focus
+                || (dynamic
+                    && (stopwatch_status.phase == Phase::Idle
+                        || stopwatch_status.phase == Phase::Focusing))
+            {
+                parts.push(format!("⏰{}", stopwatch_status.focused_seconds));
+            }
+            if *breaks || (dynamic && stopwatch_status.phase == Phase::Breaking) {
+                parts.push(format!("🏖️{}", stopwatch_status.breaked_seconds));
+            }
+            if *balance || dynamic {
+                parts.push(format!("⚖️{}", stopwatch_status.balance));
+            }
+
+            parts.push(icon.to_owned());
+
+            println!("{}", parts.join(" "));
         }
         Some(Commands::Focus) => {
             let response = send_command("focus").await?;

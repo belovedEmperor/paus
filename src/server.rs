@@ -5,7 +5,10 @@ use tokio::{
     signal::unix::{SignalKind, signal},
 };
 
-use crate::stopwatch::{Phase, StopwatchState};
+use crate::{
+    Request, Response,
+    stopwatch::{Phase, StopwatchState},
+};
 
 pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
     let mut state = match StopwatchState::try_read_state() {
@@ -62,17 +65,6 @@ pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-#[derive(serde::Deserialize)]
-struct Request {
-    command: String,
-}
-
-#[derive(serde::Serialize)]
-struct Response {
-    ok: bool,
-    message: String,
-}
-
 enum ConnectionOkResult {
     Ok,
     Stop,
@@ -95,7 +87,7 @@ async fn handle_connection(
         "daemon-stop" => {
             let mut json = serde_json::to_string(&Response {
                 ok: true,
-                message: "stopping".to_owned(),
+                data: serde_json::to_value("stopping")?,
             })?;
             json.push('\n');
 
@@ -105,21 +97,11 @@ async fn handle_connection(
         }
         "status" => {
             state.update_times();
-            let stopwatch_status = state.get_stopwatch_status().to_minutes();
+            let stopwatch_status = state.get_stopwatch_status();
 
             Response {
                 ok: true,
-                message: format!(
-                    "focus {}, breaks {}, balance {} {}",
-                    stopwatch_status.focused_seconds,
-                    stopwatch_status.breaked_seconds,
-                    stopwatch_status.balance,
-                    if stopwatch_status.is_paused {
-                        "■"
-                    } else {
-                        "▶"
-                    }
-                ),
+                data: serde_json::to_value(stopwatch_status)?,
             }
         }
         "focus" => {
@@ -127,7 +109,7 @@ async fn handle_connection(
 
             Response {
                 ok: true,
-                message: "started focusing".to_owned(),
+                data: serde_json::to_value("started focusing")?,
             }
         }
         "break" => {
@@ -135,7 +117,7 @@ async fn handle_connection(
 
             Response {
                 ok: true,
-                message: "started breaking".to_owned(),
+                data: serde_json::to_value("started breaking")?,
             }
         }
         "toggle-phase" => {
@@ -143,12 +125,11 @@ async fn handle_connection(
 
             Response {
                 ok: true,
-                message: match state.phase {
+                data: serde_json::to_value(match state.phase {
                     Phase::Focusing => "started focusing",
                     Phase::Breaking => "started breaking",
                     Phase::Idle => "started idle",
-                }
-                .to_owned(),
+                })?,
             }
         }
         "pause" => {
@@ -156,7 +137,7 @@ async fn handle_connection(
 
             Response {
                 ok: true,
-                message: "paused".to_owned(),
+                data: serde_json::to_value("paused")?,
             }
         }
         "unpause" => {
@@ -164,7 +145,7 @@ async fn handle_connection(
 
             Response {
                 ok: true,
-                message: "unpaused".to_owned(),
+                data: serde_json::to_value("unpaused")?,
             }
         }
         "toggle-pause" => {
@@ -172,17 +153,16 @@ async fn handle_connection(
 
             Response {
                 ok: true,
-                message: if state.is_paused {
+                data: serde_json::to_value(if state.is_paused {
                     "paused"
                 } else {
                     "unpaused"
-                }
-                .to_owned(),
+                })?,
             }
         }
         unknown => Response {
             ok: false,
-            message: format!("unknown command: {unknown}"),
+            data: serde_json::to_value(format!("unknown command: {unknown}"))?,
         },
     };
 
