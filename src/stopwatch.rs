@@ -57,12 +57,12 @@ impl StopwatchState {
         }
     }
 
-    pub fn try_read_state() -> Result<StopwatchState, Box<dyn Error>> {
+    pub fn try_read_state() -> Result<Self, Box<dyn Error>> {
         let share_dir = dirs::data_local_dir().ok_or("Failed to find local share dir")?;
 
         let bytes = std::fs::read(share_dir.join("paus/state.json"))?;
 
-        let mut state: StopwatchState = serde_json::from_slice(&bytes)?;
+        let mut state: Self = serde_json::from_slice(&bytes)?;
 
         state.is_paused = true;
         state.phase_started_at_seconds = now_seconds();
@@ -170,14 +170,6 @@ pub fn now_seconds() -> u64 {
         .as_secs()
 }
 
-fn to_minutes_u64(seconds: u64) -> u64 {
-    seconds / 60
-}
-
-fn to_minutes_i128(seconds: i128) -> i128 {
-    seconds / 60
-}
-
 impl StopwatchStatus {
     pub fn to_minutes(&self) -> Self {
         Self {
@@ -188,4 +180,12 @@ impl StopwatchStatus {
             balance: to_minutes_i128(self.balance),
         }
     }
+}
+
+fn to_minutes_u64(seconds: u64) -> u64 {
+    seconds / 60
+}
+
+fn to_minutes_i128(seconds: i128) -> i128 {
+    seconds / 60
 }
