@@ -4,7 +4,7 @@ use tokio::{
     net::{UnixListener, UnixStream},
 };
 
-use crate::stopwatch::{BreakRatio, StopwatchState};
+use crate::stopwatch::{BreakRatio, Phase, StopwatchState};
 
 pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
     let mut state = StopwatchState::new(0, 0, BreakRatio::Standard);
@@ -83,6 +83,19 @@ async fn handle_connection(
                 message: "started breaking".to_owned(),
             }
         }
+        "toggle-phase" => {
+            state.toggle_phase();
+
+            Response {
+                ok: true,
+                message: match state.phase {
+                    Phase::Focusing => "started focusing",
+                    Phase::Breaking => "started breaking",
+                    Phase::Idle => "started idle",
+                }
+                .to_owned(),
+            }
+        }
         "pause" => {
             state.pause();
 
@@ -97,6 +110,19 @@ async fn handle_connection(
             Response {
                 ok: true,
                 message: "unpaused".to_owned(),
+            }
+        }
+        "toggle-pause" => {
+            state.toggle_pause();
+
+            Response {
+                ok: true,
+                message: if state.is_paused {
+                    "paused"
+                } else {
+                    "unpaused"
+                }
+                .to_owned(),
             }
         }
         unknown => Response {

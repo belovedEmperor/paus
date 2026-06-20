@@ -24,8 +24,10 @@ pub enum Commands {
     Status,
     Focus,
     Break,
+    TogglePhase,
     Pause,
     Unpause,
+    TogglePause,
 }
 
 #[derive(clap::Subcommand)]
@@ -48,12 +50,20 @@ pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
             let response = send_command("break").await?;
             print!("{response}");
         }
+        Some(Commands::TogglePhase) => {
+            let response = send_command("toggle-phase").await?;
+            print!("{response}");
+        }
         Some(Commands::Pause) => {
             let response = send_command("pause").await?;
             print!("{response}");
         }
         Some(Commands::Unpause) => {
             let response = send_command("unpause").await?;
+            print!("{response}");
+        }
+        Some(Commands::TogglePause) => {
+            let response = send_command("toggle-pause").await?;
             print!("{response}");
         }
         None => {}
