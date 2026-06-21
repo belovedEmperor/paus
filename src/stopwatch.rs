@@ -44,15 +44,6 @@ pub struct StopwatchStatus {
     pub balance: i128,
 }
 
-/// Returns earned break time minus break time taken, in seconds.
-///
-/// Earned break time is `total_focused_seconds / break_ratio`.
-/// Positive = break time remaining; negative = break ran over.
-pub fn calculate_balance(state: &StopwatchState) -> i128 {
-    (Into::<i128>::into(state.total_focused_seconds) / state.break_ratio.clone() as i128)
-        - Into::<i128>::into(state.total_breaked_seconds)
-}
-
 impl StopwatchState {
     /// Creates a new, paused [`StopwatchState`] in [`Phase::Idle`] with zeroed totals and today's date.
     pub fn new(break_ratio: BreakRatio) -> Self {
@@ -200,12 +191,29 @@ impl StopwatchState {
 
     /// Returns a snapshot of current totals and balance without mutating state.
     pub fn get_stopwatch_status(&self) -> StopwatchStatus {
+        let elapsed = self.get_elapsed_seconds();
+
+        let (focused_duration, breaked_duration) = match self.phase {
+            Phase::Focusing => (
+                self.total_focused_seconds + elapsed,
+                self.total_breaked_seconds,
+            ),
+            Phase::Breaking => (
+                self.total_focused_seconds,
+                self.total_breaked_seconds + elapsed,
+            ),
+            Phase::Idle => (self.total_focused_seconds, self.total_breaked_seconds),
+        };
+
+        let balance = (focused_duration as i128 / self.break_ratio.clone() as i128)
+            - breaked_duration as i128;
+
         StopwatchStatus {
             is_paused: self.is_paused,
             phase: self.phase.clone(),
-            focused_duration: self.total_focused_seconds,
-            breaked_duration: self.total_breaked_seconds,
-            balance: calculate_balance(self),
+            focused_duration,
+            breaked_duration,
+            balance,
         }
     }
 }

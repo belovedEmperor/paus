@@ -119,7 +119,6 @@ async fn handle_connection(
             return Ok(true);
         }
         "status" => {
-            state.update_times();
             let stopwatch_status = state.get_stopwatch_status();
 
             Response {
