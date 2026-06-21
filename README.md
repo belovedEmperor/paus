@@ -94,6 +94,6 @@ Restart daemon for changes to take effect.
 
 ## TODO
 
-- [ ] Add reset state times daily.
+- [ ] Add history queries.
 - [ ] Add nix home-manager config options.
 - [ ] Add more bar support.

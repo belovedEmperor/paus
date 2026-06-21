@@ -21,7 +21,10 @@ use crate::{
 pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
     let config = Config::load();
 
+    let today = chrono::Local::now().date_naive().to_string();
+
     let mut state = match StopwatchState::try_read_state() {
+        Ok(state) if state.last_started_date != today => StopwatchState::new(config.break_ratio),
         Ok(mut state) => {
             state.break_ratio = config.break_ratio;
             state.phase = Phase::Idle;
