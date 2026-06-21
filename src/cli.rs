@@ -13,7 +13,16 @@ use std::error::Error;
 #[derive(clap::Parser)]
 #[command(name = "paus")]
 #[command(version = "0.1.0")]
-#[command(about = "A Third Time stopwatch with daemon support", long_about = "")]
+#[command(
+    about = "A Third Time stopwatch with daemon support",
+    long_about = "A stopwatch based on the Third Time productivity method.
+
+Tracks focused time and break time, maintaining a balance.
+Focusing adds to the balance at a ratio.
+Breaking withdraws from the balance.
+
+Runs a background daemon that persists between commands and restarts."
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>,
@@ -28,7 +37,8 @@ pub enum Commands {
     },
     #[command(
         about = "Get stopwatch status",
-        long_about = "Show current stopwatch status\n\nBy default shows current phase, balance, and pause state"
+        long_about = "Show current stopwatch status
+By default shows current phase, balance, and pause state dynamically"
     )]
     Status {
         #[arg(long, help = "Show focus time")]
