@@ -109,14 +109,6 @@ impl StopwatchState {
     ///
     /// No-op if paused or in [`Phase::Idle`].
     pub fn update_times(&mut self) {
-        if !self.is_paused
-            && self.phase != Phase::Idle
-            && self.get_elapsed_seconds() > 0
-            && let Err(error) = HistoryEntry::append_history(self)
-        {
-            eprintln!("Failed to append history> {error}");
-        }
-
         let elapsed_seconds = self.get_elapsed_seconds();
 
         match self.phase {
@@ -146,6 +138,7 @@ impl StopwatchState {
     /// Commits accumulated time, unpauses, and switches to [`Phase::Focusing`].
     pub fn start_focus(&mut self) {
         self.update_times();
+        let _ = HistoryEntry::append_history(self);
         self.unpause();
         self.phase = Phase::Focusing;
     }
@@ -153,6 +146,7 @@ impl StopwatchState {
     /// Commits accumulated time, unpauses, and switches to [`Phase::Breaking`].
     pub fn start_break(&mut self) {
         self.update_times();
+        let _ = HistoryEntry::append_history(self);
         self.unpause();
         self.phase = Phase::Breaking;
     }
@@ -172,6 +166,7 @@ impl StopwatchState {
         }
 
         self.update_times();
+        let _ = HistoryEntry::append_history(self);
         self.is_paused = true;
     }
 
