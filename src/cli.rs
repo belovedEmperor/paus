@@ -127,14 +127,16 @@ pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
                 let mut negative = false;
 
                 let balance_minutes = stopwatch_status.balance % 60;
-                if balance_minutes < 0 {
+                let balance_hours = stopwatch_status.balance / 60;
+
+                if balance_minutes < 0 || balance_hours < 0 {
                     negative = true;
                 }
 
                 parts.push(format!(
                     "⚖️ {}{:02}:{:02}",
                     { if negative { "-" } else { "" } },
-                    stopwatch_status.balance / 60,
+                    balance_hours.abs(),
                     balance_minutes.abs()
                 ));
             }
