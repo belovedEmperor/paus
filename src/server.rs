@@ -35,6 +35,15 @@ pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
     let mut sigint = signal(SignalKind::interrupt())?;
     let mut sighup = signal(SignalKind::hangup())?;
 
+    let any_signal = async {
+        tokio::select! {
+            _ = sigterm.recv() => {},
+            _ = sigint.recv() => {},
+            _ = sighup.recv() => {},
+        }
+    };
+    tokio::pin!(any_signal);
+
     loop {
         tokio::select! {
             result = listener.accept() => {
@@ -54,15 +63,7 @@ pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
                     }
                 }
             }
-            _ = sigterm.recv() => {
-                state.try_save_state()?;
-                break;
-            }
-            _ = sigint.recv() => {
-                state.try_save_state()?;
-                break;
-            }
-            _ = sighup.recv() => {
+            () = &mut any_signal => {
                 state.try_save_state()?;
                 break;
             }
