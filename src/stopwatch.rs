@@ -5,6 +5,8 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+use crate::history::HistoryEntry;
+
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Phase {
     Idle,
@@ -29,6 +31,8 @@ pub struct StopwatchState {
     pub total_focused_seconds: u64,
     pub total_breaked_seconds: u64,
     pub break_ratio: BreakRatio,
+    /// ISO 8601 date of the last daemon startup, used to detect day boundaries and reset daily totals.
+    pub last_started_date: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -50,7 +54,7 @@ pub fn calculate_balance(state: &StopwatchState) -> i128 {
 }
 
 impl StopwatchState {
-    /// Creates a new, paused [`StopwatchState`] in [`Phase::Idle`] with zeroed totals.
+    /// Creates a new, paused [`StopwatchState`] in [`Phase::Idle`] with zeroed totals and today's date.
     pub fn new(break_ratio: BreakRatio) -> Self {
         Self {
             is_paused: true,
@@ -59,6 +63,7 @@ impl StopwatchState {
             total_focused_seconds: 0,
             total_breaked_seconds: 0,
             break_ratio,
+            last_started_date: chrono::Local::now().date_naive().to_string(),
         }
     }
 
@@ -104,6 +109,14 @@ impl StopwatchState {
     ///
     /// No-op if paused or in [`Phase::Idle`].
     pub fn update_times(&mut self) {
+        if !self.is_paused
+            && self.phase != Phase::Idle
+            && self.get_elapsed_seconds() > 0
+            && let Err(error) = HistoryEntry::append_history(self)
+        {
+            eprintln!("Failed to append history> {error}");
+        }
+
         let elapsed_seconds = self.get_elapsed_seconds();
 
         match self.phase {
