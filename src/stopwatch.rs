@@ -137,16 +137,22 @@ impl StopwatchState {
 
     /// Commits accumulated time, unpauses, and switches to [`Phase::Focusing`].
     pub fn start_focus(&mut self) {
+        let elapsed_seconds = Self::get_elapsed_seconds(self);
         self.update_times();
-        let _ = HistoryEntry::append_history(self);
+        if elapsed_seconds > 0 && self.phase != Phase::Idle {
+            let _ = HistoryEntry::append_history(self, elapsed_seconds);
+        }
         self.unpause();
         self.phase = Phase::Focusing;
     }
 
     /// Commits accumulated time, unpauses, and switches to [`Phase::Breaking`].
     pub fn start_break(&mut self) {
+        let elapsed_seconds = Self::get_elapsed_seconds(self);
         self.update_times();
-        let _ = HistoryEntry::append_history(self);
+        if elapsed_seconds > 0 && self.phase != Phase::Idle {
+            let _ = HistoryEntry::append_history(self, elapsed_seconds);
+        }
         self.unpause();
         self.phase = Phase::Breaking;
     }
@@ -165,8 +171,11 @@ impl StopwatchState {
             return;
         }
 
+        let elapsed_seconds = Self::get_elapsed_seconds(self);
         self.update_times();
-        let _ = HistoryEntry::append_history(self);
+        if elapsed_seconds > 0 && self.phase != Phase::Idle {
+            let _ = HistoryEntry::append_history(self, elapsed_seconds);
+        }
         self.is_paused = true;
     }
 

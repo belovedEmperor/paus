@@ -39,7 +39,7 @@ impl HistoryEntry {
     ///
     /// Returns an error if the data directory cannot be resolved, the directory
     /// cannot be created, serialization fails, or the file cannot be opened or written.
-    pub fn append_history(state: &StopwatchState) -> Result<(), Box<dyn Error>> {
+    pub fn append_history(state: &StopwatchState, seconds: u64) -> Result<(), Box<dyn Error>> {
         let path = Self::get_history_path()?;
 
         std::fs::create_dir_all(path.parent().ok_or("Failed to get ~/.local/share/paus")?)?;
@@ -47,7 +47,7 @@ impl HistoryEntry {
         let entry = Self {
             ended_at: chrono::Local::now().to_rfc3339(),
             phase: state.phase.clone(),
-            seconds: state.get_elapsed_seconds(),
+            seconds,
         };
 
         let mut bytes = serde_json::to_vec(&entry)?;
