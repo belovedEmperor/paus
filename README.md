@@ -76,11 +76,25 @@ The default ratio is Standard (1/3): 30 minutes of focus earns 10 minutes of bre
 
 Saved to `~/.local/share/paus/state.json`. On daemon restart, totals carry over but the phase timer resets, so time while the daemon was down is not counted.
 
+## Config
+
+Create `~/.config/paus/config.json` to override defaults.
+
+Default config:
+
+```json
+{
+  "break_ratio": "Standard"
+}
+```
+
+Valid `break_ratio` values: `"Lazy"`, `"Standard"`, `"Industrious"`, `"Hard"`, `"Grinding"` (see [Break ratios](#break-ratios)).
+
+Restart daemon for changes to take effect.
+
 ## TODO
-- [ ] Add config file support.
-- [ ] Add option to change break ratio.
-- [ ] Add reset state `phase` on start.
-- [ ] Add reset state times daily.
+
 - [ ] Rename status `*_seconds` fields since it could be minutes.
 - [ ] Add save tracked times, and check saved times.
+- [ ] Add reset state times daily.
 - [ ] Add more bar support.

@@ -76,10 +76,7 @@ impl StopwatchState {
 
         let bytes = std::fs::read(share_dir.join("paus/state.json"))?;
 
-        let mut state: Self = serde_json::from_slice(&bytes)?;
-
-        state.is_paused = true;
-        state.phase_started_at_seconds = now_seconds();
+        let state: Self = serde_json::from_slice(&bytes)?;
 
         Ok(state)
     }
