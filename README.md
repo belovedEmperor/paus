@@ -81,6 +81,6 @@ Saved to `~/.local/share/paus/state.json`. On daemon restart, totals carry over 
 - [ ] Add option to change break ratio.
 - [ ] Add reset state `phase` on start.
 - [ ] Add reset state times daily.
-- [ ] Rename status `*_seconds` fields since it could be minute.s
+- [ ] Rename status `*_seconds` fields since it could be minutes.
 - [ ] Add save tracked times, and check saved times.
 - [ ] Add more bar support.
