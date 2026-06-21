@@ -5,6 +5,8 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+use crate::history::append_history;
+
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Phase {
     Idle,
@@ -104,6 +106,14 @@ impl StopwatchState {
     ///
     /// No-op if paused or in [`Phase::Idle`].
     pub fn update_times(&mut self) {
+        if !self.is_paused
+            && self.phase != Phase::Idle
+            && self.get_elapsed_seconds() > 0
+            && let Err(error) = append_history(self)
+        {
+            eprintln!("Failed to append history> {error}");
+        }
+
         let elapsed_seconds = self.get_elapsed_seconds();
 
         match self.phase {

@@ -94,7 +94,6 @@ Restart daemon for changes to take effect.
 
 ## TODO
 
-- [ ] Add save tracked times, and check saved times.
 - [ ] Add reset state times daily.
 - [ ] Add nix home-manager config options.
 - [ ] Add more bar support.
