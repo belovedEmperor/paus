@@ -210,19 +210,9 @@ impl StopwatchStatus {
         Self {
             is_paused: self.is_paused,
             phase: self.phase.clone(),
-            focused_seconds: to_minutes_u64(self.focused_seconds),
-            breaked_seconds: to_minutes_u64(self.breaked_seconds),
-            balance: to_minutes_i128(self.balance),
+            focused_seconds: self.focused_seconds / 60,
+            breaked_seconds: self.breaked_seconds / 60,
+            balance: self.balance / 60,
         }
     }
-}
-
-/// Converts a `u64` second count to whole minutes.
-fn to_minutes_u64(seconds: u64) -> u64 {
-    seconds / 60
-}
-
-/// Converts a signed second count to whole minutes (truncates toward zero).
-fn to_minutes_i128(seconds: i128) -> i128 {
-    seconds / 60
 }
