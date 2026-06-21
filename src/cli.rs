@@ -112,29 +112,31 @@ pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
             {
                 parts.push(format!(
                     "⏰ {:02}:{:02}",
-                    stopwatch_status.focused_seconds / 60,
-                    stopwatch_status.focused_seconds % 60
+                    stopwatch_status.focused_duration / 60,
+                    stopwatch_status.focused_duration % 60
                 ));
             }
             if *breaks || (dynamic && stopwatch_status.phase == Phase::Breaking) {
                 parts.push(format!(
                     "🏖️ {:02}:{:02}",
-                    stopwatch_status.breaked_seconds / 60,
-                    stopwatch_status.breaked_seconds % 60
+                    stopwatch_status.breaked_duration / 60,
+                    stopwatch_status.breaked_duration % 60
                 ));
             }
             if *balance || dynamic {
                 let mut negative = false;
 
                 let balance_minutes = stopwatch_status.balance % 60;
-                if balance_minutes < 0 {
+                let balance_hours = stopwatch_status.balance / 60;
+
+                if balance_minutes < 0 || balance_hours < 0 {
                     negative = true;
                 }
 
                 parts.push(format!(
                     "⚖️ {}{:02}:{:02}",
                     { if negative { "-" } else { "" } },
-                    stopwatch_status.balance / 60,
+                    balance_hours.abs(),
                     balance_minutes.abs()
                 ));
             }

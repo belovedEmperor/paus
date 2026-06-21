@@ -35,8 +35,8 @@ pub struct StopwatchState {
 pub struct StopwatchStatus {
     pub is_paused: bool,
     pub phase: Phase,
-    pub focused_seconds: u64,
-    pub breaked_seconds: u64,
+    pub focused_duration: u64,
+    pub breaked_duration: u64,
     pub balance: i128,
 }
 
@@ -76,10 +76,7 @@ impl StopwatchState {
 
         let bytes = std::fs::read(share_dir.join("paus/state.json"))?;
 
-        let mut state: Self = serde_json::from_slice(&bytes)?;
-
-        state.is_paused = true;
-        state.phase_started_at_seconds = now_seconds();
+        let state: Self = serde_json::from_slice(&bytes)?;
 
         Ok(state)
     }
@@ -189,8 +186,8 @@ impl StopwatchState {
         StopwatchStatus {
             is_paused: self.is_paused,
             phase: self.phase.clone(),
-            focused_seconds: self.total_focused_seconds,
-            breaked_seconds: self.total_breaked_seconds,
+            focused_duration: self.total_focused_seconds,
+            breaked_duration: self.total_breaked_seconds,
             balance: calculate_balance(self),
         }
     }
@@ -210,8 +207,8 @@ impl StopwatchStatus {
         Self {
             is_paused: self.is_paused,
             phase: self.phase.clone(),
-            focused_seconds: self.focused_seconds / 60,
-            breaked_seconds: self.breaked_seconds / 60,
+            focused_duration: self.focused_duration / 60,
+            breaked_duration: self.breaked_duration / 60,
             balance: self.balance / 60,
         }
     }

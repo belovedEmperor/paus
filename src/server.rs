@@ -7,7 +7,8 @@ use tokio::{
 
 use crate::{
     Request, Response,
-    stopwatch::{Phase, StopwatchState},
+    config::Config,
+    stopwatch::{Phase, StopwatchState, now_seconds},
 };
 
 /// Starts the daemon: binds a Unix socket, loads or initializes state,
@@ -18,9 +19,18 @@ use crate::{
 /// Returns an error if the socket cannot be bound, signals cannot be registered,
 /// or state persistence fails.
 pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
+    let config = Config::load();
+
     let mut state = match StopwatchState::try_read_state() {
-        Ok(state) => state,
-        Err(_) => StopwatchState::new(crate::stopwatch::BreakRatio::Standard),
+        Ok(mut state) => {
+            state.break_ratio = config.break_ratio;
+            state.phase = Phase::Idle;
+            state.is_paused = true;
+            state.phase_started_at_seconds = now_seconds();
+
+            state
+        }
+        Err(_) => StopwatchState::new(config.break_ratio),
     };
 
     let runtime_dir = dirs::runtime_dir().ok_or("Failed to find runtime dir")?;
@@ -72,7 +82,6 @@ pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
-
 
 /// Reads a single JSON command from the stream, updates stopwatch state, and writes back a JSON response.
 ///
