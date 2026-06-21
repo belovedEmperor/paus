@@ -54,7 +54,13 @@ pub enum DaemonAction {
 /// Returns an error if any command fails (daemon I/O, socket communication, or JSON parsing).
 pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
     match &cli.command {
-        Some(Commands::Daemon { action }) => handle_daemon(action).await?,
+        Some(Commands::Daemon { action }) => match action {
+            DaemonAction::Run => run_daemon().await?,
+            DaemonAction::Stop => {
+                let response = send_command("daemon-stop").await?;
+                print!("{response}");
+            }
+        },
         Some(Commands::Status {
             focus,
             breaks,
@@ -139,23 +145,6 @@ pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
             print!("{response}");
         }
         None => {}
-    }
-
-    Ok(())
-}
-
-/// Handles `daemon` subcommands: starts the daemon or sends a stop request.
-///
-/// # Errors
-///
-/// Returns an error if starting the daemon fails or the stop command cannot be sent.
-pub async fn handle_daemon(action: &DaemonAction) -> Result<(), Box<dyn Error>> {
-    match action {
-        DaemonAction::Run => run_daemon().await?,
-        DaemonAction::Stop => {
-            let response = send_command("daemon-stop").await?;
-            print!("{response}");
-        }
     }
 
     Ok(())
