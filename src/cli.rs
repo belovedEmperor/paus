@@ -37,7 +37,8 @@ pub enum Commands {
     },
     #[command(
         about = "Get stopwatch status",
-        long_about = "Show current stopwatch status\n\nBy default shows current phase, balance, and pause state"
+        long_about = "Show current stopwatch status
+By default shows current phase, balance, and pause state dynamically"
     )]
     Status {
         #[arg(long, help = "Show focus time")]
