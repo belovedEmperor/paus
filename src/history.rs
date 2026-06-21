@@ -32,8 +32,9 @@ impl HistoryEntry {
     /// Appends a completed phase record to `~/.local/share/paus/history.jsonl`.
     ///
     /// Each line is a JSON object with the RFC 3339 timestamp when the phase ended,
-    /// the phase kind, and the elapsed duration in seconds. The directory is created
-    /// if it does not already exist.
+    /// the phase kind, and the elapsed duration in seconds (passed by the caller,
+    /// captured before the phase timer is reset). The directory is created if it does
+    /// not already exist.
     ///
     /// # Errors
     ///
