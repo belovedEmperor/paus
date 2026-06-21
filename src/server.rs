@@ -40,11 +40,11 @@ pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
             result = listener.accept() => {
                 match result {
                     Ok((stream, _)) => match handle_connection(stream, &mut state).await {
-                        Ok(ConnectionOkResult::Stop) => {
+                        Ok(true) => {
                             state.try_save_state()?;
                             break;
                         }
-                        Ok(ConnectionOkResult::Ok) => {}
+                        Ok(false) => {}
                         Err(error) => {
                             eprintln!("connection error: {error}");
                         }
@@ -72,14 +72,10 @@ pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-enum ConnectionOkResult {
-    Ok,
-    Stop,
-}
 
 /// Reads a single JSON command from the stream, updates stopwatch state, and writes back a JSON response.
 ///
-/// Returns [`ConnectionOkResult::Stop`] when the daemon should shut down after this connection.
+/// Returns `true` when the daemon should shut down after this connection.
 ///
 /// # Errors
 ///
@@ -87,7 +83,7 @@ enum ConnectionOkResult {
 async fn handle_connection(
     stream: UnixStream,
     state: &mut StopwatchState,
-) -> Result<ConnectionOkResult, Box<dyn Error>> {
+) -> Result<bool, Box<dyn Error>> {
     let (reader, mut writer) = stream.into_split();
 
     let mut buffer_reader = tokio::io::BufReader::new(reader);
@@ -107,7 +103,7 @@ async fn handle_connection(
 
             writer.write_all(json.as_bytes()).await?;
 
-            return Ok(ConnectionOkResult::Stop);
+            return Ok(true);
         }
         "status" => {
             state.update_times();
@@ -185,5 +181,5 @@ async fn handle_connection(
 
     writer.write_all(json.as_bytes()).await?;
 
-    Ok(ConnectionOkResult::Ok)
+    Ok(false)
 }
