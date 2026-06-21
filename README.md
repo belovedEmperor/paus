@@ -94,7 +94,7 @@ Restart daemon for changes to take effect.
 
 ## TODO
 
-- [ ] Rename status `*_seconds` fields since it could be minutes.
 - [ ] Add save tracked times, and check saved times.
 - [ ] Add reset state times daily.
+- [ ] Add nix home-manager config options.
 - [ ] Add more bar support.
