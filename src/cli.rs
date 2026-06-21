@@ -13,7 +13,7 @@ use std::error::Error;
 #[derive(clap::Parser)]
 #[command(name = "paus")]
 #[command(version = "0.1.0")]
-#[command(about = "A Third Time stopwatch with daemon support", long_about = None)]
+#[command(about = "A Third Time stopwatch with daemon support", long_about = "")]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>,
@@ -21,29 +21,42 @@ pub struct Cli {
 
 #[derive(clap::Subcommand)]
 pub enum Commands {
+    #[command(about = "Manage stopwatch daemon")]
     Daemon {
         #[command(subcommand)]
         action: DaemonAction,
     },
+    #[command(
+        about = "Get stopwatch status",
+        long_about = "Show current stopwatch status\n\nBy default shows current phase, balance, and pause state"
+    )]
     Status {
-        #[arg(long)]
+        #[arg(long, help = "Show focus time")]
         focus: bool,
-        #[arg(long)]
+        #[arg(long, help = "Show break time")]
         breaks: bool,
-        #[arg(long)]
+        #[arg(long, help = "Show balance")]
         balance: bool,
     },
+    #[command(about = "Start focusing")]
     Focus,
+    #[command(about = "Start breaking")]
     Break,
+    #[command(about = "Toggle focus/break")]
     TogglePhase,
+    #[command(about = "Pause stopwatch")]
     Pause,
+    #[command(about = "Unpause stopwatch")]
     Unpause,
+    #[command(about = "Toggle stopwatch pause")]
     TogglePause,
 }
 
 #[derive(clap::Subcommand)]
 pub enum DaemonAction {
+    #[command(about = "Run daemon")]
     Run,
+    #[command(about = "Stop daemon")]
     Stop,
 }
 
