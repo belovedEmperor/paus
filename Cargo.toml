@@ -2,6 +2,12 @@
 name = "paus"
 version = "0.1.0"
 edition = "2024"
+description = "Third Time stopwatch daemon. Work as long as you want, earn break time as you go, spend it whenever."
+readme = "README.md"
+repository = "https://github.com/belovedEmperor/paus"
+license = "MIT"
+keywords = ["daemon", "productivity", "stopwatch", "timer", "waybar"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 chrono = "0.4.45"
@@ -10,11 +16,11 @@ dirs = "6.0.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 tokio = { version = "1.52.3", features = [
-  "net",
   "io-util",
-  "signal",
   "macros",
+  "net",
   "rt-multi-thread",
+  "signal",
 ] }
 
 [lints.clippy]
@@ -204,15 +210,15 @@ cast_possible_wrap = "allow"
 collapsible_else_if = "allow"
 comparison_chain = "allow"
 if_same_then_else = "allow"
-let_and_return = "allow"              # naming return values aids readability
+let_and_return = "allow"  # naming return values aids readability
 let_underscore_must_use = "allow"
 let_underscore_untyped = "allow"
-manual_range_contains = "allow"       # range.contains() is less readable
+manual_range_contains = "allow"  # range.contains() is less readable
 map_unwrap_or = "allow"
 result_large_err = "allow"
-self_named_module_files = "allow"     # waiting on https://github.com/rust-lang/rust-clippy/issues/9602
+self_named_module_files = "allow"  # waiting on https://github.com/rust-lang/rust-clippy/issues/9602
 should_panic_without_expect = "allow"
-significant_drop_tightening = "allow" # too many false positives
+significant_drop_tightening = "allow"  # too many false positives
 too_many_lines = "allow"
 
 [lints.rust]
@@ -228,7 +234,7 @@ trivial_numeric_casts = "warn"
 unexpected_cfgs = "warn"
 unnameable_types = "warn"
 # unreachable_pub = "warn"
-unsafe_op_in_unsafe_fn = "warn" # may become default: https://github.com/rust-lang/rust/issues/71668
+unsafe_op_in_unsafe_fn = "warn"  # may become default: https://github.com/rust-lang/rust/issues/71668
 unused_extern_crates = "warn"
 unused_import_braces = "warn"
 unused_lifetimes = "warn"
