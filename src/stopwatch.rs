@@ -99,9 +99,7 @@ impl StopwatchState {
     /// Adds elapsed time since the last update to the running phase total and resets the phase timer.
     ///
     /// No-op if paused or in [`Phase::Idle`].
-    pub fn update_times(&mut self) {
-        let elapsed_seconds = self.get_elapsed_seconds();
-
+    pub fn update_times(&mut self, elapsed_seconds: u64) {
         match self.phase {
             Phase::Focusing => {
                 self.total_focused_seconds += elapsed_seconds;
@@ -113,6 +111,14 @@ impl StopwatchState {
         }
 
         self.phase_started_at_seconds = now_seconds();
+    }
+
+    pub fn update_times_and_append_history(&mut self) {
+        let elapsed_seconds = self.get_elapsed_seconds();
+        self.update_times(elapsed_seconds);
+        if elapsed_seconds > 0 && self.phase != Phase::Idle {
+            let _ = HistoryEntry::append_history(self, elapsed_seconds);
+        }
     }
 
     /// Returns seconds elapsed in the current phase since the last update.
@@ -128,22 +134,14 @@ impl StopwatchState {
 
     /// Commits accumulated time, unpauses, and switches to [`Phase::Focusing`].
     pub fn start_focus(&mut self) {
-        let elapsed_seconds = Self::get_elapsed_seconds(self);
-        self.update_times();
-        if elapsed_seconds > 0 && self.phase != Phase::Idle {
-            let _ = HistoryEntry::append_history(self, elapsed_seconds);
-        }
+        self.update_times_and_append_history();
         self.unpause();
         self.phase = Phase::Focusing;
     }
 
     /// Commits accumulated time, unpauses, and switches to [`Phase::Breaking`].
     pub fn start_break(&mut self) {
-        let elapsed_seconds = Self::get_elapsed_seconds(self);
-        self.update_times();
-        if elapsed_seconds > 0 && self.phase != Phase::Idle {
-            let _ = HistoryEntry::append_history(self, elapsed_seconds);
-        }
+        self.update_times_and_append_history();
         self.unpause();
         self.phase = Phase::Breaking;
     }
@@ -162,11 +160,7 @@ impl StopwatchState {
             return;
         }
 
-        let elapsed_seconds = Self::get_elapsed_seconds(self);
-        self.update_times();
-        if elapsed_seconds > 0 && self.phase != Phase::Idle {
-            let _ = HistoryEntry::append_history(self, elapsed_seconds);
-        }
+        self.update_times_and_append_history();
         self.is_paused = true;
     }
 

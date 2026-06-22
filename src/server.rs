@@ -63,6 +63,7 @@ pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
                 match result {
                     Ok((stream, _)) => match handle_connection(stream, &mut state).await {
                         Ok(true) => {
+                            state.update_times_and_append_history();
                             state.try_save_state()?;
                             break;
                         }
@@ -77,6 +78,7 @@ pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
                 }
             }
             () = &mut any_signal => {
+                state.update_times_and_append_history();
                 state.try_save_state()?;
                 break;
             }
