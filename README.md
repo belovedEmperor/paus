@@ -27,7 +27,13 @@ imports = [ inputs.paus.homeManagerModules.default ];
 ### Cargo
 
 ```sh
-cargo install --path .
+cargo install paus
+```
+
+### Build from source
+
+```sh
+cargo build --release
 ```
 
 ## Commands
