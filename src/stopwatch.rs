@@ -181,6 +181,9 @@ impl StopwatchState {
         } else {
             self.pause();
         }
+        if self.phase == Phase::Idle {
+            self.phase = Phase::Focusing;
+        }
     }
 
     /// Returns a snapshot of current totals and balance without mutating state.
