@@ -104,12 +104,14 @@ pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
             let mut parts = vec![];
 
             let dynamic = !focus && !breaks && !balance;
-
-            if *focus
-                || (dynamic
-                    && (stopwatch_status.phase == Phase::Idle
-                        || stopwatch_status.phase == Phase::Focusing))
-            {
+            if dynamic && stopwatch_status.phase == Phase::Idle {
+                parts.push(format!(
+                    "✋ {:02}:{:02}",
+                    stopwatch_status.focused_duration / 60,
+                    stopwatch_status.focused_duration % 60
+                ));
+            }
+            if *focus || (dynamic && stopwatch_status.phase == Phase::Focusing) {
                 parts.push(format!(
                     "⏰ {:02}:{:02}",
                     stopwatch_status.focused_duration / 60,
