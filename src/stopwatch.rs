@@ -98,7 +98,7 @@ impl StopwatchState {
 
     /// Adds elapsed time since the last update to the running phase total and resets the phase timer.
     ///
-    /// No-op if paused or in [`Phase::Idle`].
+    /// No-op if [`Phase::Idle`].
     pub fn update_times(&mut self, elapsed_seconds: u64) {
         match self.phase {
             Phase::Focusing => {
