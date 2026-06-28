@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::history::HistoryEntry;
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
 pub enum Phase {
     Idle,
     Focusing,
@@ -232,6 +232,211 @@ impl StopwatchStatus {
             focused_duration: self.focused_duration / 60,
             breaked_duration: self.breaked_duration / 60,
             balance: self.balance / 60,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_stopwatch_state(
+        is_paused: bool,
+        phase: Phase,
+        focused: u64,
+        breaked: u64,
+        break_ratio: BreakRatio,
+    ) -> StopwatchState {
+        StopwatchState {
+            is_paused,
+            phase,
+            phase_started_at_seconds: 0,
+            total_focused_seconds: focused,
+            total_breaked_seconds: breaked,
+            break_ratio,
+            last_started_date: String::new(),
+        }
+    }
+
+    mod to_minutes {
+        use super::*;
+
+        fn make_stopwatch_status(focused: u64, breaked: u64, balance: i128) -> StopwatchStatus {
+            StopwatchStatus {
+                is_paused: true,
+                phase: Phase::Idle,
+                focused_duration: focused,
+                breaked_duration: breaked,
+                balance,
+            }
+        }
+
+        #[test]
+        fn focused_duration_is_divided_by_60() {
+            let status = make_stopwatch_status(3600, 0, 0).to_minutes();
+            assert_eq!(status.focused_duration, 60);
+        }
+
+        #[test]
+        fn breaked_duration_is_divided_by_60() {
+            let status = make_stopwatch_status(0, 120, 0).to_minutes();
+            assert_eq!(status.breaked_duration, 2);
+        }
+
+        #[test]
+        fn balance_is_divided_by_60() {
+            let status = make_stopwatch_status(0, 0, 24000).to_minutes();
+            assert_eq!(status.balance, 400);
+        }
+    }
+
+    mod get_stopwatch_status {
+        use super::*;
+
+        #[test]
+        fn balance_is_focused_over_ratio_minus_breaked() {
+            let state =
+                make_stopwatch_state(true, Phase::Focusing, 2100, 300, BreakRatio::Standard);
+            let status = state.get_stopwatch_status();
+            // balance = (2100 / 3) - 300 = 400
+            assert_eq!(status.balance, 400);
+        }
+    }
+
+    mod start_focus {
+        use super::*;
+
+        #[test]
+        fn sets_phase_to_focusing() {
+            let mut state = StopwatchState::new(BreakRatio::Standard);
+            state.start_focus();
+            assert_eq!(state.phase, Phase::Focusing);
+        }
+
+        #[test]
+        fn sets_is_paused_to_false() {
+            let mut state = StopwatchState::new(BreakRatio::Standard);
+            state.start_focus();
+            assert_eq!(state.is_paused, false);
+        }
+    }
+
+    mod start_break {
+        use super::*;
+
+        #[test]
+        fn sets_phase_to_breaking() {
+            let mut state = StopwatchState::new(BreakRatio::Standard);
+            state.start_break();
+            assert_eq!(state.phase, Phase::Breaking);
+        }
+
+        #[test]
+        fn sets_is_paused_to_false() {
+            let mut state = StopwatchState::new(BreakRatio::Standard);
+            state.start_break();
+            assert_eq!(state.is_paused, false);
+        }
+    }
+
+    mod toggle_phase {
+        use super::*;
+
+        #[test]
+        fn sets_phase_to_focusing_if_idle() {
+            let mut state = make_stopwatch_state(true, Phase::Idle, 0, 0, BreakRatio::Standard);
+            state.toggle_phase();
+            assert_eq!(state.phase, Phase::Focusing);
+        }
+
+        #[test]
+        fn sets_phase_to_focusing_if_breaking() {
+            let mut state = make_stopwatch_state(true, Phase::Breaking, 0, 0, BreakRatio::Standard);
+            state.toggle_phase();
+            assert_eq!(state.phase, Phase::Focusing);
+        }
+
+        #[test]
+        fn sets_phase_to_breaking_if_focusing() {
+            let mut state = make_stopwatch_state(true, Phase::Focusing, 0, 0, BreakRatio::Standard);
+            state.toggle_phase();
+            assert_eq!(state.phase, Phase::Breaking);
+        }
+
+        #[test]
+        fn sets_is_paused_to_false() {
+            let mut state = make_stopwatch_state(true, Phase::Idle, 0, 0, BreakRatio::Standard);
+            state.toggle_phase();
+            assert_eq!(state.is_paused, false);
+        }
+    }
+
+    mod pause {
+        use super::*;
+
+        #[test]
+        fn sets_is_paused_to_true() {
+            let mut state = make_stopwatch_state(false, Phase::Idle, 0, 0, BreakRatio::Standard);
+            state.pause();
+            assert!(state.is_paused);
+        }
+
+        #[test]
+        fn is_noop_when_paused() {
+            let mut state = make_stopwatch_state(true, Phase::Idle, 0, 0, BreakRatio::Standard);
+            state.pause();
+            state.pause();
+            assert!(state.is_paused);
+        }
+    }
+
+    mod unpause {
+        use super::*;
+
+        #[test]
+        fn sets_is_paused_to_false() {
+            let mut state = make_stopwatch_state(true, Phase::Idle, 0, 0, BreakRatio::Standard);
+            state.unpause();
+            assert!(!state.is_paused);
+        }
+
+        #[test]
+        fn sets_phase_to_focusing_if_idle() {
+            let mut state = make_stopwatch_state(true, Phase::Idle, 0, 0, BreakRatio::Standard);
+            state.unpause();
+            assert_eq!(state.phase, Phase::Focusing);
+        }
+
+        #[test]
+        fn is_noop_when_unpaused() {
+            let mut state = make_stopwatch_state(false, Phase::Idle, 0, 0, BreakRatio::Standard);
+            state.unpause();
+            state.unpause();
+            assert!(!state.is_paused);
+        }
+    }
+
+    mod toggle_unpause {
+        use super::*;
+
+        // if self.is_paused {
+        //     self.unpause();
+        // } else {
+        //     self.pause();
+        // }
+
+        #[test]
+        fn sets_is_paused_to_true_if_unpaused() {
+            let mut state = make_stopwatch_state(false, Phase::Idle, 0, 0, BreakRatio::Standard);
+            state.toggle_pause();
+            assert!(state.is_paused);
+        }
+
+        #[test]
+        fn sets_is_paused_to_false_if_paused() {
+            let mut state = make_stopwatch_state(true, Phase::Idle, 0, 0, BreakRatio::Standard);
+            state.toggle_pause();
+            assert!(!state.is_paused);
         }
     }
 }
