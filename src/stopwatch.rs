@@ -170,6 +170,9 @@ impl StopwatchState {
             return;
         }
 
+        if self.phase == Phase::Idle {
+            self.phase = Phase::Focusing;
+        }
         self.phase_started_at_seconds = now_seconds();
         self.is_paused = false;
     }
@@ -180,9 +183,6 @@ impl StopwatchState {
             self.unpause();
         } else {
             self.pause();
-        }
-        if self.phase == Phase::Idle {
-            self.phase = Phase::Focusing;
         }
     }
 
