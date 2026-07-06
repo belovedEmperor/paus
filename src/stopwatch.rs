@@ -64,7 +64,7 @@ impl StopwatchState {
         }
     }
 
-    /// Loads persisted state from `~/.local/share/paus/state.json`.
+    /// Loads persisted state from `data_dir` + `/state.json`.
     ///
     /// On success the stopwatch is reset to paused and the phase timer restarted,
     /// so time accumulated between shutdown and now is not counted.
@@ -81,18 +81,14 @@ impl StopwatchState {
         Ok(state)
     }
 
-    /// Persists the current state to `~/.local/share/paus/state.json`, creating the directory if needed.
+    /// Persists the current state to `data_dir` + `/state.json`, creating the directory if needed.
     ///
     /// # Errors
     ///
     /// Returns an error if the data directory is not found, the directory cannot be created,
     /// JSON serialization fails, or the file cannot be written.
     pub fn try_save_state(&self, data_dir: &Path) -> Result<(), Box<dyn Error>> {
-        std::fs::create_dir_all(
-            data_dir
-                .parent()
-                .ok_or("Failed to get ~/.local/share/paus")?,
-        )?;
+        std::fs::create_dir_all(data_dir.parent().ok_or("Failed to get data_dir")?)?;
 
         let bytes = serde_json::to_vec(self)?;
 

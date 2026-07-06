@@ -80,7 +80,7 @@ The default ratio is Standard (1/3): 30 minutes of focus earns 10 minutes of bre
 
 ## State
 
-Saved to `~/.local/share/paus/state.json`. On daemon restart, totals carry over but the phase timer resets, so time while the daemon was down is not counted.
+Saved to `~/.local/share/paus/state.json` or the directory set in config. On daemon restart, totals carry over but the phase timer resets, so time while the daemon was down is not counted.
 
 ## Config
 

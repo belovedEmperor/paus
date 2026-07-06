@@ -16,7 +16,7 @@ pub struct HistoryEntry {
 }
 
 impl HistoryEntry {
-    /// Appends a completed phase record to `~/.local/share/paus/history.jsonl`.
+    /// Appends a completed phase record to `data_dir` + `/history.jsonl`.
     ///
     /// Each line is a JSON object with the RFC 3339 timestamp when the phase ended,
     /// the phase kind, and the elapsed duration in seconds (passed by the caller,
@@ -30,7 +30,7 @@ impl HistoryEntry {
     pub fn append_history(state: &StopwatchState, seconds: u64) -> Result<(), Box<dyn Error>> {
         let path = state.data_dir.join("history.jsonl");
 
-        std::fs::create_dir_all(path.parent().ok_or("Failed to get ~/.local/share/paus")?)?;
+        std::fs::create_dir_all(path.parent().ok_or("Failed to get data_dir")?)?;
 
         let entry = Self {
             ended_at: chrono::Local::now().to_rfc3339(),
@@ -47,7 +47,7 @@ impl HistoryEntry {
         Ok(())
     }
 
-    /// Reads all entries from `~/.local/share/paus/history.jsonl`.
+    /// Reads all entries from `data_dir` + `/history.jsonl`.
     ///
     /// Returns an empty vector if the file does not exist yet. Malformed lines
     /// are silently skipped.
@@ -59,7 +59,7 @@ impl HistoryEntry {
     pub fn read_history(state: &StopwatchState) -> Result<Vec<Self>, Box<dyn Error>> {
         let path = state.data_dir.join("history.jsonl");
 
-        std::fs::create_dir_all(path.parent().ok_or("Failed to get ~/.local/share/paus")?)?;
+        std::fs::create_dir_all(path.parent().ok_or("Failed to get data_dir")?)?;
 
         let file = match File::open(&path) {
             Ok(file) => file,
