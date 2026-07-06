@@ -91,15 +91,10 @@ Default config:
 ```json
 {
   "break_ratio": "Standard"
+  "data_dir": "$HOME/.config/paus"
 }
 ```
 
 Valid `break_ratio` values: `"Lazy"`, `"Standard"`, `"Industrious"`, `"Hard"`, `"Grinding"` (see [Break ratios](#break-ratios)).
 
 Restart daemon for changes to take effect.
-
-## TODO
-
-- [ ] Add history queries.
-- [ ] Add nix home-manager config options.
-- [ ] Add more bar support.
