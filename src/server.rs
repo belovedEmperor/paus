@@ -20,20 +20,23 @@ use crate::{
 /// or state persistence fails.
 pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
     let config = Config::load();
+    Config::create_config_file_if_not_existing(&config)?;
 
     let today = chrono::Local::now().date_naive().to_string();
 
-    let mut state = match StopwatchState::try_read_state() {
-        Ok(state) if state.last_started_date != today => StopwatchState::new(config.break_ratio),
+    let mut state = match StopwatchState::try_read_state(&config.data_dir) {
+        Ok(state) if state.last_started_date != today => {
+            StopwatchState::new(config.clone().break_ratio, config.clone().data_dir)
+        }
         Ok(mut state) => {
-            state.break_ratio = config.break_ratio;
+            state.break_ratio = config.clone().break_ratio;
             state.phase = Phase::Idle;
             state.is_paused = true;
             state.phase_started_at_seconds = now_seconds();
 
             state
         }
-        Err(_) => StopwatchState::new(config.break_ratio),
+        Err(_) => StopwatchState::new(config.clone().break_ratio, config.clone().data_dir),
     };
 
     let runtime_dir = dirs::runtime_dir().ok_or("Failed to find runtime dir")?;
@@ -64,7 +67,7 @@ pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
                     Ok((stream, _)) => match handle_connection(stream, &mut state).await {
                         Ok(true) => {
                             state.update_times_and_append_history();
-                            state.try_save_state()?;
+                            state.try_save_state(&config.data_dir)?;
                             break;
                         }
                         Ok(false) => {}
@@ -79,7 +82,7 @@ pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
             }
             () = &mut any_signal => {
                 state.update_times_and_append_history();
-                state.try_save_state()?;
+                state.try_save_state(&config.data_dir)?;
                 break;
             }
         }

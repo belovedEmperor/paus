@@ -80,7 +80,7 @@ The default ratio is Standard (1/3): 30 minutes of focus earns 10 minutes of bre
 
 ## State
 
-Saved to `~/.local/share/paus/state.json`. On daemon restart, totals carry over but the phase timer resets, so time while the daemon was down is not counted.
+Saved to `~/.local/share/paus/state.json` or the directory set in config. On daemon restart, totals carry over but the phase timer resets, so time while the daemon was down is not counted.
 
 ## Config
 
@@ -91,15 +91,10 @@ Default config:
 ```json
 {
   "break_ratio": "Standard"
+  "data_dir": "$HOME/.config/paus"
 }
 ```
 
 Valid `break_ratio` values: `"Lazy"`, `"Standard"`, `"Industrious"`, `"Hard"`, `"Grinding"` (see [Break ratios](#break-ratios)).
 
 Restart daemon for changes to take effect.
-
-## TODO
-
-- [ ] Add history queries.
-- [ ] Add nix home-manager config options.
-- [ ] Add more bar support.
