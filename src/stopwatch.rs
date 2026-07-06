@@ -15,9 +15,10 @@ pub enum Phase {
     Breaking,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Default)]
 pub enum BreakRatio {
     Lazy = 2,
+    #[default]
     Standard = 3,
     Industrious = 4,
     Hard = 5,
@@ -31,6 +32,7 @@ pub struct StopwatchState {
     pub phase_started_at_seconds: u64,
     pub total_focused_seconds: u64,
     pub total_breaked_seconds: u64,
+    #[serde(skip)]
     pub break_ratio: BreakRatio,
     #[serde(skip)]
     pub data_dir: PathBuf,
