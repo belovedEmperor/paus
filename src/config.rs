@@ -1,6 +1,6 @@
-use std::{fs, path::PathBuf};
+use std::{error::Error, fs, path::PathBuf};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::stopwatch::BreakRatio;
 
@@ -8,7 +8,7 @@ use crate::stopwatch::BreakRatio;
 ///
 /// All fields are optional in the config file — missing fields fall back to [`Default`].
 /// Fields use variant names as strings, e.g. `{ "break_ratio": "Standard" }`.
-#[derive(Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(default)]
 pub struct Config {
     /// How much break time is earned per second of focus.
@@ -39,6 +39,24 @@ impl Config {
     /// Returns `None` if the platform config directory cannot be determined.
     pub fn path() -> Option<PathBuf> {
         dirs::config_dir().map(|directory| directory.join("paus").join("config.json"))
+    }
+
+    /// Creates config file if it doesn't already exist.
+    ///
+    /// # Errors
+    ///
+    /// Returns errors if config file can't be found, config fails to serialize, or file
+    /// fails to write.
+    pub fn create_config_file_if_not_existing(&self) -> Result<(), Box<dyn Error>> {
+        let path = Self::path().ok_or("No ~/.config found")?;
+
+        std::fs::create_dir_all(path.parent().ok_or("Failed to get No ~/.config/paus")?)?;
+
+        let bytes = serde_json::to_vec(self)?;
+
+        std::fs::write(path, bytes)?;
+
+        Ok(())
     }
 
     /// Loads config from [`Config::path`], falling back to [`Default`] on any failure.

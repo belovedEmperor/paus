@@ -20,6 +20,7 @@ use crate::{
 /// or state persistence fails.
 pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
     let config = Config::load();
+    Config::create_config_file_if_not_existing(&config)?;
 
     let today = chrono::Local::now().date_naive().to_string();
 
