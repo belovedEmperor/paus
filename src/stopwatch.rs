@@ -1,5 +1,6 @@
 use std::{
     error::Error,
+    path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -31,6 +32,8 @@ pub struct StopwatchState {
     pub total_focused_seconds: u64,
     pub total_breaked_seconds: u64,
     pub break_ratio: BreakRatio,
+    #[serde(skip)]
+    pub data_dir: PathBuf,
     /// ISO 8601 date of the last daemon startup, used to detect day boundaries and reset daily totals.
     pub last_started_date: String,
 }
@@ -46,7 +49,7 @@ pub struct StopwatchStatus {
 
 impl StopwatchState {
     /// Creates a new, paused [`StopwatchState`] in [`Phase::Idle`] with zeroed totals and today's date.
-    pub fn new(break_ratio: BreakRatio) -> Self {
+    pub fn new(break_ratio: BreakRatio, data_dir: PathBuf) -> Self {
         Self {
             is_paused: true,
             phase: Phase::Idle,
@@ -54,6 +57,7 @@ impl StopwatchState {
             total_focused_seconds: 0,
             total_breaked_seconds: 0,
             break_ratio,
+            data_dir,
             last_started_date: chrono::Local::now().date_naive().to_string(),
         }
     }
@@ -67,10 +71,8 @@ impl StopwatchState {
     ///
     /// Returns an error if the data directory is not found, the file cannot be read,
     /// or the JSON cannot be deserialized.
-    pub fn try_read_state() -> Result<Self, Box<dyn Error>> {
-        let share_dir = dirs::data_local_dir().ok_or("Failed to find local share dir")?;
-
-        let bytes = std::fs::read(share_dir.join("paus/state.json"))?;
+    pub fn try_read_state(data_dir: &Path) -> Result<Self, Box<dyn Error>> {
+        let bytes = std::fs::read(data_dir.join("state.json"))?;
 
         let state: Self = serde_json::from_slice(&bytes)?;
 
@@ -83,15 +85,16 @@ impl StopwatchState {
     ///
     /// Returns an error if the data directory is not found, the directory cannot be created,
     /// JSON serialization fails, or the file cannot be written.
-    pub fn try_save_state(&self) -> Result<(), Box<dyn Error>> {
-        let share_dir = dirs::data_local_dir().ok_or("Failed to find local share dir")?;
-        let path = share_dir.join("paus/state.json");
-
-        std::fs::create_dir_all(path.parent().ok_or("Failed to get ~/.local/share/paus")?)?;
+    pub fn try_save_state(&self, data_dir: &Path) -> Result<(), Box<dyn Error>> {
+        std::fs::create_dir_all(
+            data_dir
+                .parent()
+                .ok_or("Failed to get ~/.local/share/paus")?,
+        )?;
 
         let bytes = serde_json::to_vec(self)?;
 
-        std::fs::write(path, bytes)?;
+        std::fs::write(data_dir.join("state.json"), bytes)?;
 
         Ok(())
     }
@@ -247,6 +250,8 @@ mod tests {
         breaked: u64,
         break_ratio: BreakRatio,
     ) -> StopwatchState {
+        let config = crate::config::Config::default();
+
         StopwatchState {
             is_paused,
             phase,
@@ -254,8 +259,15 @@ mod tests {
             total_focused_seconds: focused,
             total_breaked_seconds: breaked,
             break_ratio,
+            data_dir: config.data_dir,
             last_started_date: String::new(),
         }
+    }
+
+    fn make_standard_stopwatch_state() -> StopwatchState {
+        let config = crate::config::Config::default();
+
+        StopwatchState::new(BreakRatio::Standard, config.data_dir)
     }
 
     mod to_minutes {
@@ -308,14 +320,14 @@ mod tests {
 
         #[test]
         fn sets_phase_to_focusing() {
-            let mut state = StopwatchState::new(BreakRatio::Standard);
+            let mut state = make_standard_stopwatch_state();
             state.start_focus();
             assert_eq!(state.phase, Phase::Focusing);
         }
 
         #[test]
         fn sets_is_paused_to_false() {
-            let mut state = StopwatchState::new(BreakRatio::Standard);
+            let mut state = make_standard_stopwatch_state();
             state.start_focus();
             assert_eq!(state.is_paused, false);
         }
@@ -326,14 +338,14 @@ mod tests {
 
         #[test]
         fn sets_phase_to_breaking() {
-            let mut state = StopwatchState::new(BreakRatio::Standard);
+            let mut state = make_standard_stopwatch_state();
             state.start_break();
             assert_eq!(state.phase, Phase::Breaking);
         }
 
         #[test]
         fn sets_is_paused_to_false() {
-            let mut state = StopwatchState::new(BreakRatio::Standard);
+            let mut state = make_standard_stopwatch_state();
             state.start_break();
             assert_eq!(state.is_paused, false);
         }

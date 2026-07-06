@@ -2,7 +2,6 @@ use std::{
     error::Error,
     fs::{File, OpenOptions},
     io::{BufRead as _, BufReader, Write as _},
-    path::PathBuf,
 };
 
 use serde::{Deserialize, Serialize};
@@ -17,18 +16,6 @@ pub struct HistoryEntry {
 }
 
 impl HistoryEntry {
-    /// Returns the path to `~/.local/share/paus/history.jsonl`.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the local data directory cannot be resolved.
-    pub fn get_history_path() -> Result<PathBuf, Box<dyn Error>> {
-        let share_dir = dirs::data_local_dir().ok_or("Failed to find local share dir")?;
-        let path = share_dir.join("paus/history.jsonl");
-
-        Ok(path)
-    }
-
     /// Appends a completed phase record to `~/.local/share/paus/history.jsonl`.
     ///
     /// Each line is a JSON object with the RFC 3339 timestamp when the phase ended,
@@ -37,11 +24,11 @@ impl HistoryEntry {
     /// not already exist.
     ///
     /// # Errors
-    ///
+    //
     /// Returns an error if the data directory cannot be resolved, the directory
     /// cannot be created, serialization fails, or the file cannot be opened or written.
     pub fn append_history(state: &StopwatchState, seconds: u64) -> Result<(), Box<dyn Error>> {
-        let path = Self::get_history_path()?;
+        let path = state.data_dir.join("history.jsonl");
 
         std::fs::create_dir_all(path.parent().ok_or("Failed to get ~/.local/share/paus")?)?;
 
@@ -69,8 +56,8 @@ impl HistoryEntry {
     ///
     /// Returns an error if the data directory cannot be resolved, the directory
     /// cannot be created, or the file cannot be read.
-    pub fn read_history() -> Result<Vec<Self>, Box<dyn Error>> {
-        let path = Self::get_history_path()?;
+    pub fn read_history(state: &StopwatchState) -> Result<Vec<Self>, Box<dyn Error>> {
+        let path = state.data_dir.join("history.jsonl");
 
         std::fs::create_dir_all(path.parent().ok_or("Failed to get ~/.local/share/paus")?)?;
 

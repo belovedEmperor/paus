@@ -8,7 +8,7 @@ use crate::stopwatch::BreakRatio;
 ///
 /// All fields are optional in the config file — missing fields fall back to [`Default`].
 /// Fields use variant names as strings, e.g. `{ "break_ratio": "Standard" }`.
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 #[serde(default)]
 pub struct Config {
     /// How much break time is earned per second of focus.
@@ -16,12 +16,19 @@ pub struct Config {
     /// Serialized as the variant name, e.g. `"Standard"` (not the integer discriminant).
     /// Defaults to [`BreakRatio::Standard`].
     pub break_ratio: BreakRatio,
+    /// Where the state directory is.
+    pub data_dir: PathBuf,
 }
 
 impl Default for Config {
     fn default() -> Self {
+        let data_dir = dirs::data_local_dir()
+            .or_else(|| dirs::home_dir().map(|home_dir| home_dir.join(".local/share")))
+            .expect("No home directory found")
+            .join("paus");
         Self {
             break_ratio: BreakRatio::Standard,
+            data_dir,
         }
     }
 }
