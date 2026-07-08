@@ -33,6 +33,7 @@ pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
             state.phase = Phase::Idle;
             state.is_paused = true;
             state.phase_started_at_seconds = now_seconds();
+            state.data_dir = config.clone().data_dir;
 
             state
         }
