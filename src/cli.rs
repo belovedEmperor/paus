@@ -1,4 +1,5 @@
-use serde_json::json;
+use serde::{Deserialize, Serialize};
+use serde_json::{json, to_value};
 use tokio::{
     io::{AsyncBufReadExt as _, AsyncWriteExt as _},
     net::UnixStream,
@@ -28,7 +29,7 @@ pub struct Cli {
     pub command: Option<Commands>,
 }
 
-#[derive(clap::Subcommand)]
+#[derive(clap::Subcommand, Serialize, Deserialize)]
 pub enum Commands {
     #[command(about = "Manage stopwatch daemon")]
     Daemon {
@@ -60,9 +61,16 @@ By default shows current phase, balance, and pause state dynamically"
     Unpause,
     #[command(about = "Toggle stopwatch pause")]
     TogglePause,
+    #[command(about = "Manually add entry to history")]
+    Add {
+        #[arg(short, long, help = "Entry duration in minutes")]
+        duration: u64,
+        #[arg(short, long, help = "Entry phase, focusing or breaking")]
+        phase: Phase,
+    },
 }
 
-#[derive(clap::Subcommand)]
+#[derive(clap::Subcommand, Serialize, Deserialize)]
 pub enum DaemonAction {
     #[command(about = "Run daemon")]
     Run,
@@ -84,6 +92,14 @@ pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
                 print!("{response}");
             }
         },
+        Some(Commands::Add { duration, phase }) => {
+            let data = to_value(Commands::Add {
+                duration: *duration,
+                phase: *phase,
+            })?;
+            let response = send_command_with_data("add", Some(data)).await?;
+            print!("{response}");
+        }
         Some(Commands::Status {
             focus,
             breaks,
@@ -177,17 +193,25 @@ pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+/// Thin wrapper around `send_command_with_data`. For sending commands with no data.
+async fn send_command(command: &str) -> Result<String, Box<dyn Error>> {
+    send_command_with_data(command, None).await
+}
+
 /// Sends a JSON command to the running daemon over a Unix socket and returns the raw response line.
 ///
 /// # Errors
 ///
 /// Returns an error if the runtime directory is unavailable, the socket connection fails,
 /// or reading/writing to the stream fails.
-async fn send_command(command: &str) -> Result<String, Box<dyn Error>> {
+async fn send_command_with_data(
+    command: &str,
+    data: Option<serde_json::Value>,
+) -> Result<String, Box<dyn Error>> {
     let runtime_dir = dirs::runtime_dir().ok_or("no runtime dir")?;
     let mut stream = UnixStream::connect(runtime_dir.join("paus.sock")).await?;
 
-    let mut request = serde_json::to_string(&json!({ "command": command }))?;
+    let mut request = serde_json::to_string(&json!({ "command": command, "data": data }))?;
     request.push('\n');
     stream.write_all(request.as_bytes()).await?;
 

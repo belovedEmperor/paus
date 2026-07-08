@@ -9,6 +9,8 @@ pub mod stopwatch;
 #[derive(Deserialize)]
 struct Request {
     command: String,
+    #[serde(default)]
+    data: serde_json::Value,
 }
 
 #[derive(Serialize, Deserialize)]

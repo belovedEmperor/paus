@@ -7,7 +7,9 @@ use tokio::{
 
 use crate::{
     Request, Response,
+    cli::Commands,
     config::Config,
+    history::HistoryEntry,
     stopwatch::{Phase, StopwatchState, now_seconds},
 };
 
@@ -186,6 +188,25 @@ async fn handle_connection(
                 } else {
                     "unpaused"
                 })?,
+            }
+        }
+        "add" => {
+            let Commands::Add {
+                duration: duration_minutes,
+                phase,
+            } = serde_json::from_value::<Commands>(request.data)?
+            else {
+                return Err("invalid data for add".into());
+            };
+
+            let duration_seconds = duration_minutes * 60;
+
+            HistoryEntry::append_history(&state.data_dir, phase, duration_seconds)?;
+            state.add_duration(phase, duration_seconds);
+
+            Response {
+                ok: true,
+                data: serde_json::to_value("added history entry")?,
             }
         }
         unknown => Response {

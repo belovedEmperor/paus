@@ -2,6 +2,7 @@ use std::{
     error::Error,
     fs::{File, OpenOptions},
     io::{BufRead as _, BufReader, Write as _},
+    path::Path,
 };
 
 use serde::{Deserialize, Serialize};
@@ -27,14 +28,18 @@ impl HistoryEntry {
     //
     /// Returns an error if the data directory cannot be resolved, the directory
     /// cannot be created, serialization fails, or the file cannot be opened or written.
-    pub fn append_history(state: &StopwatchState, seconds: u64) -> Result<(), Box<dyn Error>> {
-        let path = state.data_dir.join("history.jsonl");
+    pub fn append_history(
+        data_dir: &Path,
+        phase: Phase,
+        seconds: u64,
+    ) -> Result<(), Box<dyn Error>> {
+        let path = data_dir.join("history.jsonl");
 
         std::fs::create_dir_all(path.parent().ok_or("Failed to get data_dir")?)?;
 
         let entry = Self {
             ended_at: chrono::Local::now().to_rfc3339(),
-            phase: state.phase.clone(),
+            phase,
             seconds,
         };
 
