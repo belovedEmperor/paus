@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::history::HistoryEntry;
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Debug, clap::ValueEnum)]
 pub enum Phase {
     Idle,
     Focusing,
@@ -118,7 +118,7 @@ impl StopwatchState {
         let elapsed_seconds = self.get_elapsed_seconds();
         self.update_times(elapsed_seconds);
         if elapsed_seconds > 0 && self.phase != Phase::Idle {
-            let _ = HistoryEntry::append_history(self, elapsed_seconds);
+            let _ = HistoryEntry::append_history(&self.data_dir, self.phase, elapsed_seconds);
         }
     }
 
@@ -208,10 +208,18 @@ impl StopwatchState {
 
         StopwatchStatus {
             is_paused: self.is_paused,
-            phase: self.phase.clone(),
+            phase: self.phase,
             focused_duration,
             breaked_duration,
             balance,
+        }
+    }
+
+    pub fn add_duration(&mut self, phase: Phase, duration_seconds: u64) {
+        match phase {
+            Phase::Focusing => self.total_focused_seconds += duration_seconds,
+            Phase::Breaking => self.total_breaked_seconds += duration_seconds,
+            Phase::Idle => {}
         }
     }
 }
@@ -229,7 +237,7 @@ impl StopwatchStatus {
     pub fn to_minutes(&self) -> Self {
         Self {
             is_paused: self.is_paused,
-            phase: self.phase.clone(),
+            phase: self.phase,
             focused_duration: self.focused_duration / 60,
             breaked_duration: self.breaked_duration / 60,
             balance: self.balance / 60,
