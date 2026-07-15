@@ -1,16 +1,16 @@
 use serde::{Deserialize, Serialize};
 
+use crate::cli::Commands;
+
 pub mod cli;
 pub mod config;
 pub mod history;
 pub mod server;
 pub mod stopwatch;
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 struct Request {
-    command: String,
-    #[serde(default)]
-    data: serde_json::Value,
+    command: Commands,
 }
 
 #[derive(Serialize, Deserialize)]
