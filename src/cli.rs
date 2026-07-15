@@ -1,11 +1,12 @@
 use serde::{Deserialize, Serialize};
-use serde_json::{json, to_value};
+use serde_json::{from_str, json};
 use tokio::{
     io::{AsyncBufReadExt as _, AsyncWriteExt as _},
     net::UnixStream,
 };
 
 use crate::{
+    Response,
     server::run_daemon,
     stopwatch::{Phase, StopwatchStatus},
 };
@@ -88,16 +89,21 @@ pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
         Some(Commands::Daemon { action }) => match action {
             DaemonAction::Run => run_daemon().await?,
             DaemonAction::Stop => {
-                let response = send_command("daemon-stop").await?;
+                let response = send_command(Commands::Daemon {
+                    action: DaemonAction::Stop,
+                })
+                .await?;
+                let response = format_response(response.as_str())?;
                 print!("{response}");
             }
         },
         Some(Commands::Add { duration, phase }) => {
-            let data = to_value(Commands::Add {
+            let response = send_command(Commands::Add {
                 duration: *duration,
                 phase: *phase,
-            })?;
-            let response = send_command_with_data("add", Some(data)).await?;
+            })
+            .await?;
+            let response = format_response(response.as_str())?;
             print!("{response}");
         }
         Some(Commands::Status {
@@ -105,7 +111,12 @@ pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
             breaks,
             balance,
         }) => {
-            let raw = send_command("status").await?;
+            let raw = send_command(Commands::Status {
+                focus: false,
+                breaks: false,
+                balance: false,
+            })
+            .await?;
             let value: serde_json::Value = serde_json::from_str(&raw)?;
             let stopwatch_status: StopwatchStatus =
                 serde_json::from_value(value.get("data").ok_or("no data")?.clone())?;
@@ -164,27 +175,33 @@ pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
             println!("{}", parts.join(" "));
         }
         Some(Commands::Focus) => {
-            let response = send_command("focus").await?;
+            let response = send_command(Commands::Focus).await?;
+            let response = format_response(response.as_str())?;
             print!("{response}");
         }
         Some(Commands::Break) => {
-            let response = send_command("break").await?;
+            let response = send_command(Commands::Break).await?;
+            let response = format_response(response.as_str())?;
             print!("{response}");
         }
         Some(Commands::TogglePhase) => {
-            let response = send_command("toggle-phase").await?;
+            let response = send_command(Commands::TogglePhase).await?;
+            let response = format_response(response.as_str())?;
             print!("{response}");
         }
         Some(Commands::Pause) => {
-            let response = send_command("pause").await?;
+            let response = send_command(Commands::Pause).await?;
+            let response = format_response(response.as_str())?;
             print!("{response}");
         }
         Some(Commands::Unpause) => {
-            let response = send_command("unpause").await?;
+            let response = send_command(Commands::Unpause).await?;
+            let response = format_response(response.as_str())?;
             print!("{response}");
         }
         Some(Commands::TogglePause) => {
-            let response = send_command("toggle-pause").await?;
+            let response = send_command(Commands::TogglePause).await?;
+            let response = format_response(response.as_str())?;
             print!("{response}");
         }
         None => {}
@@ -193,25 +210,17 @@ pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/// Thin wrapper around `send_command_with_data`. For sending commands with no data.
-async fn send_command(command: &str) -> Result<String, Box<dyn Error>> {
-    send_command_with_data(command, None).await
-}
-
 /// Sends a JSON command to the running daemon over a Unix socket and returns the raw response line.
 ///
 /// # Errors
 ///
 /// Returns an error if the runtime directory is unavailable, the socket connection fails,
 /// or reading/writing to the stream fails.
-async fn send_command_with_data(
-    command: &str,
-    data: Option<serde_json::Value>,
-) -> Result<String, Box<dyn Error>> {
+async fn send_command(command: Commands) -> Result<String, Box<dyn Error>> {
     let runtime_dir = dirs::runtime_dir().ok_or("no runtime dir")?;
     let mut stream = UnixStream::connect(runtime_dir.join("paus.sock")).await?;
 
-    let mut request = serde_json::to_string(&json!({ "command": command, "data": data }))?;
+    let mut request = serde_json::to_string(&json!({ "command": command}))?;
     request.push('\n');
     stream.write_all(request.as_bytes()).await?;
 
@@ -220,4 +229,17 @@ async fn send_command_with_data(
     reader.read_line(&mut response).await?;
 
     Ok(response)
+}
+
+/// Format server response from json to string.
+///
+/// # Errors
+///
+/// Returns an error if the response fails to serialize into a `Response`.
+fn format_response(response: &str) -> Result<String, Box<dyn Error>> {
+    let formatted_response: Response = from_str(response)?;
+    Ok(formatted_response
+        .data
+        .as_str()
+        .map_or_else(|| formatted_response.data.to_string(), str::to_owned))
 }

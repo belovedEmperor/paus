@@ -7,7 +7,7 @@ use tokio::{
 
 use crate::{
     Request, Response,
-    cli::Commands,
+    cli::{Commands, DaemonAction},
     config::Config,
     history::HistoryEntry,
     stopwatch::{Phase, StopwatchState, now_seconds},
@@ -114,8 +114,13 @@ async fn handle_connection(
 
     let request: Request = serde_json::from_str(&line)?;
 
-    let response = match request.command.as_str() {
-        "daemon-stop" => {
+    let response = match request.command {
+        Commands::Daemon {
+            action: DaemonAction::Run,
+        } => return Err("daemon run is client only".into()),
+        Commands::Daemon {
+            action: DaemonAction::Stop,
+        } => {
             let mut json = serde_json::to_string(&Response {
                 ok: true,
                 data: serde_json::to_value("stopping")?,
@@ -126,7 +131,11 @@ async fn handle_connection(
 
             return Ok(true);
         }
-        "status" => {
+        Commands::Status {
+            focus: _,
+            breaks: _,
+            balance: _,
+        } => {
             let stopwatch_status = state.get_stopwatch_status();
 
             Response {
@@ -134,7 +143,7 @@ async fn handle_connection(
                 data: serde_json::to_value(stopwatch_status)?,
             }
         }
-        "focus" => {
+        Commands::Focus => {
             state.start_focus();
 
             Response {
@@ -142,7 +151,7 @@ async fn handle_connection(
                 data: serde_json::to_value("started focusing")?,
             }
         }
-        "break" => {
+        Commands::Break => {
             state.start_break();
 
             Response {
@@ -150,7 +159,7 @@ async fn handle_connection(
                 data: serde_json::to_value("started breaking")?,
             }
         }
-        "toggle-phase" => {
+        Commands::TogglePhase => {
             state.toggle_phase();
 
             Response {
@@ -162,7 +171,7 @@ async fn handle_connection(
                 })?,
             }
         }
-        "pause" => {
+        Commands::Pause => {
             state.pause();
 
             Response {
@@ -170,7 +179,7 @@ async fn handle_connection(
                 data: serde_json::to_value("paused")?,
             }
         }
-        "unpause" => {
+        Commands::Unpause => {
             state.unpause();
 
             Response {
@@ -178,7 +187,7 @@ async fn handle_connection(
                 data: serde_json::to_value("unpaused")?,
             }
         }
-        "toggle-pause" => {
+        Commands::TogglePause => {
             state.toggle_pause();
 
             Response {
@@ -190,16 +199,8 @@ async fn handle_connection(
                 })?,
             }
         }
-        "add" => {
-            let Commands::Add {
-                duration: duration_minutes,
-                phase,
-            } = serde_json::from_value::<Commands>(request.data)?
-            else {
-                return Err("invalid data for add".into());
-            };
-
-            let duration_seconds = duration_minutes * 60;
+        Commands::Add { duration, phase } => {
+            let duration_seconds = duration * 60;
 
             HistoryEntry::append_history(&state.data_dir, phase, duration_seconds)?;
             state.add_duration(phase, duration_seconds);
@@ -209,10 +210,6 @@ async fn handle_connection(
                 data: serde_json::to_value("added history entry")?,
             }
         }
-        unknown => Response {
-            ok: false,
-            data: serde_json::to_value(format!("unknown command: {unknown}"))?,
-        },
     };
 
     let mut json = serde_json::to_string(&response)?;
