@@ -1,11 +1,12 @@
 use serde::{Deserialize, Serialize};
-use serde_json::{json, to_value};
+use serde_json::{from_str, json, to_value};
 use tokio::{
     io::{AsyncBufReadExt as _, AsyncWriteExt as _},
     net::UnixStream,
 };
 
 use crate::{
+    Response,
     server::run_daemon,
     stopwatch::{Phase, StopwatchStatus},
 };
@@ -89,6 +90,7 @@ pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
             DaemonAction::Run => run_daemon().await?,
             DaemonAction::Stop => {
                 let response = send_command("daemon-stop").await?;
+                let response = format_response(response.as_str())?;
                 print!("{response}");
             }
         },
@@ -98,6 +100,7 @@ pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
                 phase: *phase,
             })?;
             let response = send_command_with_data("add", Some(data)).await?;
+            let response = format_response(response.as_str())?;
             print!("{response}");
         }
         Some(Commands::Status {
@@ -165,26 +168,32 @@ pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
         }
         Some(Commands::Focus) => {
             let response = send_command("focus").await?;
+            let response = format_response(response.as_str())?;
             print!("{response}");
         }
         Some(Commands::Break) => {
             let response = send_command("break").await?;
+            let response = format_response(response.as_str())?;
             print!("{response}");
         }
         Some(Commands::TogglePhase) => {
             let response = send_command("toggle-phase").await?;
+            let response = format_response(response.as_str())?;
             print!("{response}");
         }
         Some(Commands::Pause) => {
             let response = send_command("pause").await?;
+            let response = format_response(response.as_str())?;
             print!("{response}");
         }
         Some(Commands::Unpause) => {
             let response = send_command("unpause").await?;
+            let response = format_response(response.as_str())?;
             print!("{response}");
         }
         Some(Commands::TogglePause) => {
             let response = send_command("toggle-pause").await?;
+            let response = format_response(response.as_str())?;
             print!("{response}");
         }
         None => {}
@@ -220,4 +229,17 @@ async fn send_command_with_data(
     reader.read_line(&mut response).await?;
 
     Ok(response)
+}
+
+/// Format server response from json to string.
+///
+/// # Errors
+///
+/// Returns an error if the response fails to serialize into a `Response`.
+fn format_response(response: &str) -> Result<String, Box<dyn Error>> {
+    let formatted_response: Response = from_str(response)?;
+    Ok(formatted_response
+        .data
+        .as_str()
+        .map_or_else(|| formatted_response.data.to_string(), str::to_owned))
 }
