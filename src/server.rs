@@ -210,6 +210,17 @@ async fn handle_connection(
                 data: serde_json::to_value("added history entry")?,
             }
         }
+        Commands::Compute => {
+            let history = HistoryEntry::read_history(state)?;
+            let (focused, breaked) = HistoryEntry::compute_state_durations_from_history(&history);
+            state.total_focused_seconds = focused;
+            state.total_breaked_seconds = breaked;
+
+            Response {
+                ok: true,
+                data: serde_json::to_value("computed new state durations")?,
+            }
+        }
     };
 
     let mut json = serde_json::to_string(&response)?;

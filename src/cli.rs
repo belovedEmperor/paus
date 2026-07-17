@@ -14,7 +14,7 @@ use std::error::Error;
 
 #[derive(clap::Parser)]
 #[command(name = "paus")]
-#[command(version = "0.1.0")]
+#[command(version = "0.3.0")]
 #[command(
     about = "A Third Time stopwatch with daemon support",
     long_about = "A stopwatch based on the Third Time productivity method.
@@ -62,13 +62,15 @@ By default shows current phase, balance, and pause state dynamically"
     Unpause,
     #[command(about = "Toggle stopwatch pause")]
     TogglePause,
-    #[command(about = "Manually add entry to history")]
+    #[command(about = "Manually add entry to history & time to state")]
     Add {
         #[arg(short, long, help = "Entry duration in minutes")]
         duration: u64,
         #[arg(short, long, help = "Entry phase, focusing or breaking")]
         phase: Phase,
     },
+    #[command(about = "Compute new state durations from history entries")]
+    Compute,
 }
 
 #[derive(clap::Subcommand, Serialize, Deserialize)]
@@ -201,6 +203,11 @@ pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
         }
         Some(Commands::TogglePause) => {
             let response = send_command(Commands::TogglePause).await?;
+            let response = format_response(response.as_str())?;
+            print!("{response}");
+        }
+        Some(Commands::Compute) => {
+            let response = send_command(Commands::Compute).await?;
             let response = format_response(response.as_str())?;
             print!("{response}");
         }
