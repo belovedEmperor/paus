@@ -1,6 +1,6 @@
 [package]
 name = "paus"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 description = "Third Time stopwatch daemon. Work as long as you want, earn break time as you go, spend it whenever."
 readme = "README.md"

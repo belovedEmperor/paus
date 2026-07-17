@@ -14,7 +14,7 @@ use std::error::Error;
 
 #[derive(clap::Parser)]
 #[command(name = "paus")]
-#[command(version = "0.1.0")]
+#[command(version = "0.3.0")]
 #[command(
     about = "A Third Time stopwatch with daemon support",
     long_about = "A stopwatch based on the Third Time productivity method.
