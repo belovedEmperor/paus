@@ -82,4 +82,19 @@ impl HistoryEntry {
 
         Ok(entries)
     }
+
+    /// Computes the state durations from today's history entries
+    pub fn compute_state_durations_from_history(history: &[Self]) -> (u64, u64) {
+        history
+            .iter()
+            .filter(|entry| {
+                entry.ended_at.split('T').next()
+                    == chrono::Local::now().to_rfc3339().split('T').next()
+            })
+            .fold((0, 0), |(focused, breaked), entry| match entry.phase {
+                Phase::Focusing => (focused + entry.seconds, breaked),
+                Phase::Breaking => (focused, breaked + entry.seconds),
+                Phase::Idle => (focused, breaked),
+            })
+    }
 }
