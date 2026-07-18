@@ -131,11 +131,7 @@ async fn handle_connection(
 
             return Ok(true);
         }
-        Commands::Status {
-            focus: _,
-            breaks: _,
-            balance: _,
-        } => {
+        Commands::Status { .. } => {
             let stopwatch_status = state.get_stopwatch_status();
 
             Response {
