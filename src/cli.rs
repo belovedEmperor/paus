@@ -91,22 +91,18 @@ pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
         Some(Commands::Daemon { action }) => match action {
             DaemonAction::Run => run_daemon().await?,
             DaemonAction::Stop => {
-                let response = send_command(Commands::Daemon {
+                dispatch(Commands::Daemon {
                     action: DaemonAction::Stop,
                 })
                 .await?;
-                let response = format_response(response.as_str())?;
-                print!("{response}");
             }
         },
         Some(Commands::Add { duration, phase }) => {
-            let response = send_command(Commands::Add {
+            dispatch(Commands::Add {
                 duration: *duration,
                 phase: *phase,
             })
             .await?;
-            let response = format_response(response.as_str())?;
-            print!("{response}");
         }
         Some(Commands::Status {
             focus,
@@ -177,39 +173,25 @@ pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
             println!("{}", parts.join(" "));
         }
         Some(Commands::Focus) => {
-            let response = send_command(Commands::Focus).await?;
-            let response = format_response(response.as_str())?;
-            print!("{response}");
+            dispatch(Commands::Focus).await?;
         }
         Some(Commands::Break) => {
-            let response = send_command(Commands::Break).await?;
-            let response = format_response(response.as_str())?;
-            print!("{response}");
+            dispatch(Commands::Break).await?;
         }
         Some(Commands::TogglePhase) => {
-            let response = send_command(Commands::TogglePhase).await?;
-            let response = format_response(response.as_str())?;
-            print!("{response}");
+            dispatch(Commands::TogglePhase).await?;
         }
         Some(Commands::Pause) => {
-            let response = send_command(Commands::Pause).await?;
-            let response = format_response(response.as_str())?;
-            print!("{response}");
+            dispatch(Commands::Pause).await?;
         }
         Some(Commands::Unpause) => {
-            let response = send_command(Commands::Unpause).await?;
-            let response = format_response(response.as_str())?;
-            print!("{response}");
+            dispatch(Commands::Unpause).await?;
         }
         Some(Commands::TogglePause) => {
-            let response = send_command(Commands::TogglePause).await?;
-            let response = format_response(response.as_str())?;
-            print!("{response}");
+            dispatch(Commands::TogglePause).await?;
         }
         Some(Commands::Compute) => {
-            let response = send_command(Commands::Compute).await?;
-            let response = format_response(response.as_str())?;
-            print!("{response}");
+            dispatch(Commands::Compute).await?;
         }
         None => {}
     }
@@ -236,6 +218,13 @@ async fn send_command(command: Commands) -> Result<String, Box<dyn Error>> {
     reader.read_line(&mut response).await?;
 
     Ok(response)
+}
+
+async fn dispatch(command: Commands) -> Result<(), Box<dyn Error>> {
+    let response = send_command(command).await?;
+    let response = format_response(response.as_str())?;
+    print!("{response}");
+    Ok(())
 }
 
 /// Format server response from json to string.
