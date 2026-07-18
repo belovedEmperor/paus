@@ -1,11 +1,10 @@
+use anyhow::{Result, anyhow};
+use serde::{Deserialize, Serialize};
 use std::{
-    error::Error,
     fs::{File, OpenOptions},
     io::{BufRead as _, BufReader, Write as _},
     path::Path,
 };
-
-use serde::{Deserialize, Serialize};
 
 use crate::stopwatch::{Phase, StopwatchState};
 
@@ -28,14 +27,13 @@ impl HistoryEntry {
     //
     /// Returns an error if the data directory cannot be resolved, the directory
     /// cannot be created, serialization fails, or the file cannot be opened or written.
-    pub fn append_history(
-        data_dir: &Path,
-        phase: Phase,
-        seconds: u64,
-    ) -> Result<(), Box<dyn Error>> {
+    pub fn append_history(data_dir: &Path, phase: Phase, seconds: u64) -> Result<()> {
         let path = data_dir.join("history.jsonl");
 
-        std::fs::create_dir_all(path.parent().ok_or("Failed to get data_dir")?)?;
+        std::fs::create_dir_all(
+            path.parent()
+                .ok_or_else(|| anyhow!("Failed to get data_dir"))?,
+        )?;
 
         let entry = Self {
             ended_at: chrono::Local::now().to_rfc3339(),
@@ -61,10 +59,13 @@ impl HistoryEntry {
     ///
     /// Returns an error if the data directory cannot be resolved, the directory
     /// cannot be created, or the file cannot be read.
-    pub fn read_history(state: &StopwatchState) -> Result<Vec<Self>, Box<dyn Error>> {
+    pub fn read_history(state: &StopwatchState) -> Result<Vec<Self>> {
         let path = state.data_dir.join("history.jsonl");
 
-        std::fs::create_dir_all(path.parent().ok_or("Failed to get data_dir")?)?;
+        std::fs::create_dir_all(
+            path.parent()
+                .ok_or_else(|| anyhow!("Failed to get data_dir"))?,
+        )?;
 
         let file = match File::open(&path) {
             Ok(file) => file,

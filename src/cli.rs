@@ -1,3 +1,4 @@
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, json};
 use tokio::{
@@ -10,7 +11,6 @@ use crate::{
     server::run_daemon,
     stopwatch::{Phase, StopwatchStatus},
 };
-use std::error::Error;
 
 #[derive(clap::Parser)]
 #[command(name = "paus")]
@@ -86,7 +86,7 @@ pub enum DaemonAction {
 /// # Errors
 ///
 /// Returns an error if any command fails (daemon I/O, socket communication, or JSON parsing).
-pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
+pub async fn handle_cli(cli: &Cli) -> Result<()> {
     match &cli.command {
         Some(Commands::Daemon { action }) => match action {
             DaemonAction::Run => run_daemon().await?,
@@ -116,8 +116,9 @@ pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
             })
             .await?;
             let value: serde_json::Value = serde_json::from_str(&raw)?;
-            let stopwatch_status: StopwatchStatus =
-                serde_json::from_value(value.get("data").ok_or("no data")?.clone())?;
+            let stopwatch_status: StopwatchStatus = serde_json::from_value(
+                value.get("data").ok_or_else(|| anyhow!("no data"))?.clone(),
+            )?;
 
             let stopwatch_status = stopwatch_status.to_minutes();
             let icon = if stopwatch_status.is_paused {
@@ -205,8 +206,8 @@ pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
 ///
 /// Returns an error if the runtime directory is unavailable, the socket connection fails,
 /// or reading/writing to the stream fails.
-async fn send_command(command: Commands) -> Result<String, Box<dyn Error>> {
-    let runtime_dir = dirs::runtime_dir().ok_or("no runtime dir")?;
+async fn send_command(command: Commands) -> Result<String> {
+    let runtime_dir = dirs::runtime_dir().ok_or_else(|| anyhow!("no runtime dir"))?;
     let mut stream = UnixStream::connect(runtime_dir.join("paus.sock")).await?;
 
     let mut request = serde_json::to_string(&json!({ "command": command}))?;
@@ -220,7 +221,7 @@ async fn send_command(command: Commands) -> Result<String, Box<dyn Error>> {
     Ok(response)
 }
 
-async fn dispatch(command: Commands) -> Result<(), Box<dyn Error>> {
+async fn dispatch(command: Commands) -> Result<()> {
     let response = send_command(command).await?;
     let response = format_response(response.as_str())?;
     print!("{response}");
@@ -232,7 +233,7 @@ async fn dispatch(command: Commands) -> Result<(), Box<dyn Error>> {
 /// # Errors
 ///
 /// Returns an error if the response fails to serialize into a `Response`.
-fn format_response(response: &str) -> Result<String, Box<dyn Error>> {
+fn format_response(response: &str) -> Result<String> {
     let formatted_response: Response = from_str(response)?;
     Ok(formatted_response
         .data
