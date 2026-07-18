@@ -50,6 +50,10 @@ impl Config {
     pub fn create_config_file_if_not_existing(&self) -> Result<(), Box<dyn Error>> {
         let path = Self::path().ok_or("No ~/.config found")?;
 
+        if path.try_exists()? {
+            return Ok(());
+        }
+
         std::fs::create_dir_all(path.parent().ok_or("Failed to get No ~/.config/paus")?)?;
 
         let bytes = serde_json::to_vec(self)?;
