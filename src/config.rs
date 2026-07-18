@@ -1,6 +1,6 @@
-use std::{error::Error, fs, path::PathBuf};
-
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
+use std::{fs, path::PathBuf};
 
 use crate::stopwatch::BreakRatio;
 
@@ -47,14 +47,17 @@ impl Config {
     ///
     /// Returns errors if config file can't be found, config fails to serialize, or file
     /// fails to write.
-    pub fn create_config_file_if_not_existing(&self) -> Result<(), Box<dyn Error>> {
-        let path = Self::path().ok_or("No ~/.config found")?;
+    pub fn create_config_file_if_not_existing(&self) -> Result<()> {
+        let path = Self::path().ok_or_else(|| anyhow!("No ~/.config found"))?;
 
         if path.try_exists()? {
             return Ok(());
         }
 
-        std::fs::create_dir_all(path.parent().ok_or("Failed to get No ~/.config/paus")?)?;
+        std::fs::create_dir_all(
+            path.parent()
+                .ok_or_else(|| anyhow!("Failed to get No ~/.config/paus"))?,
+        )?;
 
         let bytes = serde_json::to_vec(self)?;
 

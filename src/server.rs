@@ -1,4 +1,4 @@
-use std::error::Error;
+use anyhow::{Result, anyhow};
 use tokio::{
     io::{AsyncBufReadExt as _, AsyncWriteExt as _},
     net::{UnixListener, UnixStream},
@@ -20,7 +20,7 @@ use crate::{
 ///
 /// Returns an error if the socket cannot be bound, signals cannot be registered,
 /// or state persistence fails.
-pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
+pub async fn run_daemon() -> Result<()> {
     let config = Config::load();
     Config::create_config_file_if_not_existing(&config)?;
 
@@ -42,7 +42,7 @@ pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
         Err(_) => StopwatchState::new(config.break_ratio.clone(), config.data_dir.clone()),
     };
 
-    let runtime_dir = dirs::runtime_dir().ok_or("Failed to find runtime dir")?;
+    let runtime_dir = dirs::runtime_dir().ok_or_else(|| anyhow!("Failed to find runtime dir"))?;
 
     let socket_path = runtime_dir.join("paus.sock");
     if socket_path.try_exists()? {
@@ -101,10 +101,7 @@ pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
 /// # Errors
 ///
 /// Returns an error if reading/writing the stream fails or JSON (de)serialization fails.
-async fn handle_connection(
-    stream: UnixStream,
-    state: &mut StopwatchState,
-) -> Result<bool, Box<dyn Error>> {
+async fn handle_connection(stream: UnixStream, state: &mut StopwatchState) -> Result<bool> {
     let (reader, mut writer) = stream.into_split();
 
     let mut buffer_reader = tokio::io::BufReader::new(reader);
@@ -117,7 +114,7 @@ async fn handle_connection(
     let response = match request.command {
         Commands::Daemon {
             action: DaemonAction::Run,
-        } => return Err("daemon run is client only".into()),
+        } => return Err(anyhow!("daemon run is client only")),
         Commands::Daemon {
             action: DaemonAction::Stop,
         } => {
