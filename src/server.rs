@@ -28,18 +28,18 @@ pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
 
     let mut state = match StopwatchState::try_read_state(&config.data_dir) {
         Ok(state) if state.last_started_date != today => {
-            StopwatchState::new(config.clone().break_ratio, config.clone().data_dir)
+            StopwatchState::new(config.break_ratio, config.data_dir.clone())
         }
         Ok(mut state) => {
-            state.break_ratio = config.clone().break_ratio;
+            state.break_ratio = config.break_ratio.clone();
             state.phase = Phase::Idle;
             state.is_paused = true;
             state.phase_started_at_seconds = now_seconds();
-            state.data_dir = config.clone().data_dir;
+            state.data_dir = config.data_dir.clone();
 
             state
         }
-        Err(_) => StopwatchState::new(config.clone().break_ratio, config.clone().data_dir),
+        Err(_) => StopwatchState::new(config.break_ratio.clone(), config.data_dir.clone()),
     };
 
     let runtime_dir = dirs::runtime_dir().ok_or("Failed to find runtime dir")?;
