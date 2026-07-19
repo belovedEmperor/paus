@@ -1,10 +1,9 @@
+use anyhow::{Result, anyhow};
+use serde::{Deserialize, Serialize};
 use std::{
-    error::Error,
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
-
-use serde::{Deserialize, Serialize};
 
 use crate::history::HistoryEntry;
 
@@ -73,7 +72,7 @@ impl StopwatchState {
     ///
     /// Returns an error if the data directory is not found, the file cannot be read,
     /// or the JSON cannot be deserialized.
-    pub fn try_read_state(data_dir: &Path) -> Result<Self, Box<dyn Error>> {
+    pub fn try_read_state(data_dir: &Path) -> Result<Self> {
         let bytes = std::fs::read(data_dir.join("state.json"))?;
 
         let state: Self = serde_json::from_slice(&bytes)?;
@@ -87,8 +86,12 @@ impl StopwatchState {
     ///
     /// Returns an error if the data directory is not found, the directory cannot be created,
     /// JSON serialization fails, or the file cannot be written.
-    pub fn try_save_state(&self, data_dir: &Path) -> Result<(), Box<dyn Error>> {
-        std::fs::create_dir_all(data_dir.parent().ok_or("Failed to get data_dir")?)?;
+    pub fn try_save_state(&self, data_dir: &Path) -> Result<()> {
+        std::fs::create_dir_all(
+            data_dir
+                .parent()
+                .ok_or_else(|| anyhow!("Failed to get data_dir"))?,
+        )?;
 
         let bytes = serde_json::to_vec(self)?;
 
