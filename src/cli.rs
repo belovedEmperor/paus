@@ -6,7 +6,7 @@ use tokio::{
 };
 
 use crate::{
-    Response,
+    Request, Response,
     server::run_daemon,
     stopwatch::{Phase, StopwatchStatus},
 };
@@ -223,11 +223,11 @@ pub async fn handle_cli(cli: &Cli) -> Result<(), Box<dyn Error>> {
 ///
 /// Returns an error if the runtime directory is unavailable, the socket connection fails,
 /// or reading/writing to the stream fails.
-async fn send_command(command: Commands) -> Result<String, Box<dyn Error>> {
+pub async fn send_command(command: Commands) -> Result<String, Box<dyn Error>> {
     let runtime_dir = dirs::runtime_dir().ok_or("no runtime dir")?;
     let mut stream = UnixStream::connect(runtime_dir.join("paus.sock")).await?;
 
-    let mut request = serde_json::to_string(&json!({ "command": command}))?;
+    let mut request = serde_json::to_string(&json!(&Request { command }))?;
     request.push('\n');
     stream.write_all(request.as_bytes()).await?;
 

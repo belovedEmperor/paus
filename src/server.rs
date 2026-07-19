@@ -7,7 +7,7 @@ use tokio::{
 
 use crate::{
     Request, Response,
-    cli::{Commands, DaemonAction},
+    cli::{Commands, DaemonAction, send_command},
     config::Config,
     history::HistoryEntry,
     stopwatch::{Phase, StopwatchState, now_seconds},
@@ -26,6 +26,19 @@ pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
 
     let today = chrono::Local::now().date_naive().to_string();
 
+    let runtime_dir = dirs::runtime_dir().ok_or("Failed to find runtime dir")?;
+
+    let socket_path = runtime_dir.join("paus.sock");
+    if socket_path.try_exists()? {
+        let _ = send_command(Commands::Daemon {
+            action: DaemonAction::Stop,
+        })
+        .await;
+        std::fs::remove_file(&socket_path)?;
+    }
+
+    let listener = UnixListener::bind(socket_path)?;
+
     let mut state = match StopwatchState::try_read_state(&config.data_dir) {
         Ok(state) if state.last_started_date != today => {
             StopwatchState::new(config.clone().break_ratio, config.clone().data_dir)
@@ -41,14 +54,6 @@ pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
         }
         Err(_) => StopwatchState::new(config.clone().break_ratio, config.clone().data_dir),
     };
-
-    let runtime_dir = dirs::runtime_dir().ok_or("Failed to find runtime dir")?;
-
-    let socket_path = runtime_dir.join("paus.sock");
-    if socket_path.try_exists()? {
-        std::fs::remove_file(&socket_path)?;
-    }
-    let listener = UnixListener::bind(socket_path)?;
 
     let mut sigterm = signal(SignalKind::terminate())?;
     let mut sigint = signal(SignalKind::interrupt())?;
@@ -69,8 +74,6 @@ pub async fn run_daemon() -> Result<(), Box<dyn Error>> {
                 match result {
                     Ok((stream, _)) => match handle_connection(stream, &mut state).await {
                         Ok(true) => {
-                            state.update_times_and_append_history();
-                            state.try_save_state(&config.data_dir)?;
                             break;
                         }
                         Ok(false) => {}
@@ -121,6 +124,8 @@ async fn handle_connection(
         Commands::Daemon {
             action: DaemonAction::Stop,
         } => {
+            state.update_times_and_append_history();
+            state.try_save_state(&state.data_dir)?;
             let mut json = serde_json::to_string(&Response {
                 ok: true,
                 data: serde_json::to_value("stopping")?,
