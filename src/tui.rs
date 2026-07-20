@@ -15,6 +15,11 @@ use crate::{
     stopwatch::{Phase, StopwatchStatus},
 };
 
+/// Run the TUI, restoring the terminal on exit even if the event loop errors.
+///
+/// # Errors
+///
+/// Returns an error if terminal event handling or daemon communication fails.
 pub async fn run_tui() -> Result<()> {
     let mut terminal = ratatui::init();
     let result = event_loop(&mut terminal).await;

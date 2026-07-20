@@ -233,6 +233,12 @@ pub async fn send_command(command: Commands) -> Result<String> {
     Ok(response)
 }
 
+/// Send `command` to the daemon and print the formatted response.
+///
+/// # Errors
+///
+/// Returns an error if the daemon socket is unreachable, the request
+/// fails to send, or the response cannot be parsed.
 pub async fn dispatch(command: Commands) -> Result<()> {
     let response = send_command(command).await?;
     let response = format_response(response.as_str())?;
