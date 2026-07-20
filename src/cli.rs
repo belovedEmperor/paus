@@ -10,6 +10,7 @@ use crate::{
     Request, Response,
     server::run_daemon,
     stopwatch::{Phase, StopwatchStatus},
+    tui::run_tui,
 };
 
 #[derive(clap::Parser)]
@@ -132,41 +133,24 @@ pub async fn handle_cli(cli: &Cli) -> Result<()> {
             let dynamic = !focus && !breaks && !balance;
             if dynamic && stopwatch_status.phase == Phase::Idle {
                 parts.push(format!(
-                    "✋ {:02}:{:02}",
-                    stopwatch_status.focused_duration / 60,
-                    stopwatch_status.focused_duration % 60
+                    "✋ {}",
+                    format_focused_duration(stopwatch_status.focused_duration)
                 ));
             }
             if *focus || (dynamic && stopwatch_status.phase == Phase::Focusing) {
                 parts.push(format!(
-                    "⏰ {:02}:{:02}",
-                    stopwatch_status.focused_duration / 60,
-                    stopwatch_status.focused_duration % 60
+                    "⏰ {}",
+                    format_focused_duration(stopwatch_status.focused_duration)
                 ));
             }
             if *breaks || (dynamic && stopwatch_status.phase == Phase::Breaking) {
                 parts.push(format!(
-                    "🏖️ {:02}:{:02}",
-                    stopwatch_status.breaked_duration / 60,
-                    stopwatch_status.breaked_duration % 60
+                    "🏖️ {}",
+                    format_breaked_duration(stopwatch_status.breaked_duration)
                 ));
             }
             if *balance || dynamic {
-                let mut negative = false;
-
-                let balance_minutes = stopwatch_status.balance % 60;
-                let balance_hours = stopwatch_status.balance / 60;
-
-                if balance_minutes < 0 || balance_hours < 0 {
-                    negative = true;
-                }
-
-                parts.push(format!(
-                    "⚖️ {}{:02}:{:02}",
-                    { if negative { "-" } else { "" } },
-                    balance_hours.abs(),
-                    balance_minutes.abs()
-                ));
+                parts.push(format!("⚖️ {}", format_balance(stopwatch_status.balance)));
             }
 
             parts.push(icon.to_owned());
@@ -194,10 +178,38 @@ pub async fn handle_cli(cli: &Cli) -> Result<()> {
         Some(Commands::Compute) => {
             dispatch(Commands::Compute).await?;
         }
-        None => {}
+        None => {
+            run_tui().await?;
+        }
     }
 
     Ok(())
+}
+
+pub fn format_focused_duration(focused_duration: u64) -> String {
+    format!("{:02}:{:02}", focused_duration / 60, focused_duration % 60)
+}
+
+pub fn format_breaked_duration(breaked_duration: u64) -> String {
+    format!("{:02}:{:02}", breaked_duration / 60, breaked_duration % 60)
+}
+
+pub fn format_balance(balance: i128) -> String {
+    let mut negative = false;
+
+    let balance_minutes = balance % 60;
+    let balance_hours = balance / 60;
+
+    if balance_minutes < 0 || balance_hours < 0 {
+        negative = true;
+    }
+
+    format!(
+        "{}{:02}:{:02}",
+        { if negative { "-" } else { "" } },
+        balance_hours.abs(),
+        balance_minutes.abs()
+    )
 }
 
 /// Sends a JSON command to the running daemon over a Unix socket and returns the raw response line.
@@ -221,7 +233,13 @@ pub async fn send_command(command: Commands) -> Result<String> {
     Ok(response)
 }
 
-async fn dispatch(command: Commands) -> Result<()> {
+/// Send `command` to the daemon and print the formatted response.
+///
+/// # Errors
+///
+/// Returns an error if the daemon socket is unreachable, the request
+/// fails to send, or the response cannot be parsed.
+pub async fn dispatch(command: Commands) -> Result<()> {
     let response = send_command(command).await?;
     let response = format_response(response.as_str())?;
     print!("{response}");
