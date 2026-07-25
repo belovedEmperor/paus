@@ -15,7 +15,7 @@ use crate::{
 
 #[derive(clap::Parser)]
 #[command(name = "paus")]
-#[command(version = "0.3.0")]
+#[command(version = "0.4.0")]
 #[command(
     about = "A Third Time stopwatch with daemon support",
     long_about = "A stopwatch based on the Third Time productivity method.
