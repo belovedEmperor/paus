@@ -176,14 +176,17 @@ pub async fn handle_cli(cli: &Cli) -> Result<()> {
     Ok(())
 }
 
+/// Formats seconds as `HH:MM` for display.
 pub fn format_focused_duration(focused_duration: u64) -> String {
     format!("{:02}:{:02}", focused_duration / 60, focused_duration % 60)
 }
 
+/// Formats seconds as `HH:MM` for display.
 pub fn format_breaked_duration(breaked_duration: u64) -> String {
     format!("{:02}:{:02}", breaked_duration / 60, breaked_duration % 60)
 }
 
+/// Formats a signed minute balance as `[-]HH:MM`.
 pub fn format_balance(balance: i128) -> String {
     let mut negative = false;
 

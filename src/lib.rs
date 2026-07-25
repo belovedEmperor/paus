@@ -14,6 +14,7 @@ struct Request {
     command: Commands,
 }
 
+/// JSON reply written back to the CLI client over the daemon socket.
 #[derive(Serialize, Deserialize)]
 pub struct Response {
     ok: bool,

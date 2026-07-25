@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::{
     path::{Path, PathBuf},
@@ -7,6 +7,7 @@ use std::{
 
 use crate::history::HistoryEntry;
 
+/// What the stopwatch is currently doing.
 #[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Debug, clap::ValueEnum)]
 pub enum Phase {
     Idle,
@@ -14,6 +15,7 @@ pub enum Phase {
     Breaking,
 }
 
+/// Ratio of focus seconds to break seconds earned; higher means more focus required per minute of break.
 #[derive(Clone, Serialize, Deserialize, Default)]
 pub enum BreakRatio {
     Lazy = 2,
@@ -26,10 +28,15 @@ pub enum BreakRatio {
 
 #[derive(Serialize, Deserialize)]
 pub struct StopwatchState {
+    /// Whether the stopwatch is currently paused (not accumulating time).
     pub is_paused: bool,
+    /// The current phase (idle, focusing, or breaking).
     pub phase: Phase,
+    /// Unix timestamp (seconds) when the current phase last started or resumed.
     pub phase_started_at_seconds: u64,
+    /// Total accumulated focus time in seconds, not including the current running phase.
     pub total_focused_seconds: u64,
+    /// Total accumulated break time in seconds, not including the current running phase.
     pub total_breaked_seconds: u64,
     #[serde(skip)]
     pub break_ratio: BreakRatio,
@@ -38,6 +45,7 @@ pub struct StopwatchState {
     /// ISO 8601 date of the last daemon startup, used to detect day boundaries and reset daily totals.
     pub last_started_date: String,
     #[serde(default = "default_session")]
+    /// Current session number; incremented on [`StopwatchState::increment_session`] to mark a new day chunk.
     pub session: u32,
 }
 
@@ -115,6 +123,8 @@ impl StopwatchState {
         self.phase_started_at_seconds = now_seconds();
     }
 
+    /// Commits elapsed time via [`StopwatchState::update_times`] and appends a history entry
+    /// for the elapsed span, unless idle or nothing elapsed.
     pub fn update_times_and_append_history(&mut self) {
         let elapsed_seconds = self.get_elapsed_seconds();
         self.update_times(elapsed_seconds);
@@ -222,6 +232,7 @@ impl StopwatchState {
         }
     }
 
+    /// Adds `duration_seconds` directly to the given phase's total, bypassing the phase timer.
     pub fn add_duration(&mut self, phase: Phase, duration_seconds: u64) {
         match phase {
             Phase::Focusing => self.total_focused_seconds += duration_seconds,
@@ -244,18 +255,21 @@ impl StopwatchState {
         Ok(())
     }
 
+    /// Zeroes accumulated focus and break totals.
     pub fn reset_times(&mut self) {
         self.total_focused_seconds = 0;
         self.total_breaked_seconds = 0;
     }
 }
 
+/// Read-only snapshot of a [`StopwatchState`] for display and IPC, with a computed balance.
 #[derive(Serialize, Deserialize)]
 pub struct StopwatchStatus {
     pub is_paused: bool,
     pub phase: Phase,
     pub focused_duration: u64,
     pub breaked_duration: u64,
+    /// Break time available: `focused_duration / break_ratio - breaked_duration`.
     pub balance: i128,
     pub session: u32,
 }

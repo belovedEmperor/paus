@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{File, OpenOptions},
@@ -8,6 +8,7 @@ use std::{
 
 use crate::stopwatch::{Phase, StopwatchState};
 
+/// One completed phase span, as persisted to `history.jsonl`.
 #[derive(Serialize, Deserialize)]
 pub struct HistoryEntry {
     pub ended_at: String,
