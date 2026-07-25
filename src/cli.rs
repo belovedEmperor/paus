@@ -72,6 +72,11 @@ By default shows current phase, balance, and pause state dynamically"
     },
     #[command(about = "Compute new state durations from history entries")]
     Compute,
+    #[command(about = "Manage sessions")]
+    Session {
+        #[command(subcommand)]
+        action: SessionAction,
+    },
 }
 
 #[derive(clap::Subcommand, Serialize, Deserialize)]
@@ -80,6 +85,12 @@ pub enum DaemonAction {
     Run,
     #[command(about = "Stop daemon")]
     Stop,
+}
+
+#[derive(clap::Subcommand, Serialize, Deserialize)]
+pub enum SessionAction {
+    #[command(about = "Next session")]
+    Next,
 }
 
 /// Dispatches the parsed CLI command to the appropriate handler.
@@ -122,40 +133,11 @@ pub async fn handle_cli(cli: &Cli) -> Result<()> {
             )?;
 
             let stopwatch_status = stopwatch_status.to_minutes();
-            let icon = if stopwatch_status.is_paused {
-                "⏸"
-            } else {
-                "▶"
-            };
 
-            let mut parts = vec![];
+            let formatted_status =
+                format_stopwatch_status(&stopwatch_status, *focus, *breaks, *balance);
 
-            let dynamic = !focus && !breaks && !balance;
-            if dynamic && stopwatch_status.phase == Phase::Idle {
-                parts.push(format!(
-                    "✋ {}",
-                    format_focused_duration(stopwatch_status.focused_duration)
-                ));
-            }
-            if *focus || (dynamic && stopwatch_status.phase == Phase::Focusing) {
-                parts.push(format!(
-                    "⏰ {}",
-                    format_focused_duration(stopwatch_status.focused_duration)
-                ));
-            }
-            if *breaks || (dynamic && stopwatch_status.phase == Phase::Breaking) {
-                parts.push(format!(
-                    "🏖️ {}",
-                    format_breaked_duration(stopwatch_status.breaked_duration)
-                ));
-            }
-            if *balance || dynamic {
-                parts.push(format!("⚖️ {}", format_balance(stopwatch_status.balance)));
-            }
-
-            parts.push(icon.to_owned());
-
-            println!("{}", parts.join(" "));
+            println!("{formatted_status}");
         }
         Some(Commands::Focus) => {
             dispatch(Commands::Focus).await?;
@@ -178,6 +160,14 @@ pub async fn handle_cli(cli: &Cli) -> Result<()> {
         Some(Commands::Compute) => {
             dispatch(Commands::Compute).await?;
         }
+        Some(Commands::Session { action }) => match action {
+            SessionAction::Next => {
+                dispatch(Commands::Session {
+                    action: SessionAction::Next,
+                })
+                .await?;
+            }
+        },
         None => {
             run_tui().await?;
         }
@@ -210,6 +200,48 @@ pub fn format_balance(balance: i128) -> String {
         balance_hours.abs(),
         balance_minutes.abs()
     )
+}
+
+fn format_stopwatch_status(
+    stopwatch_status: &StopwatchStatus,
+    focus: bool,
+    breaks: bool,
+    balance: bool,
+) -> String {
+    let icon = if stopwatch_status.is_paused {
+        "⏸"
+    } else {
+        "▶"
+    };
+
+    let mut parts = vec![];
+
+    let dynamic = !focus && !breaks && !balance;
+    if dynamic && stopwatch_status.phase == Phase::Idle {
+        parts.push(format!(
+            "✋ {}",
+            format_focused_duration(stopwatch_status.focused_duration)
+        ));
+    }
+    if focus || (dynamic && stopwatch_status.phase == Phase::Focusing) {
+        parts.push(format!(
+            "⏰ {}",
+            format_focused_duration(stopwatch_status.focused_duration)
+        ));
+    }
+    if breaks || (dynamic && stopwatch_status.phase == Phase::Breaking) {
+        parts.push(format!(
+            "🏖️ {}",
+            format_breaked_duration(stopwatch_status.breaked_duration)
+        ));
+    }
+    if balance || dynamic {
+        parts.push(format!("⚖️ {}", format_balance(stopwatch_status.balance)));
+    }
+
+    parts.push(icon.to_owned());
+
+    parts.join(" ")
 }
 
 /// Sends a JSON command to the running daemon over a Unix socket and returns the raw response line.

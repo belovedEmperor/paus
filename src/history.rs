@@ -13,6 +13,7 @@ pub struct HistoryEntry {
     pub ended_at: String,
     pub phase: Phase,
     pub seconds: u64,
+    pub session: u32,
 }
 
 impl HistoryEntry {
@@ -27,7 +28,7 @@ impl HistoryEntry {
     //
     /// Returns an error if the data directory cannot be resolved, the directory
     /// cannot be created, serialization fails, or the file cannot be opened or written.
-    pub fn append_history(data_dir: &Path, phase: Phase, seconds: u64) -> Result<()> {
+    pub fn append_history(data_dir: &Path, phase: Phase, seconds: u64, session: u32) -> Result<()> {
         let path = data_dir.join("history.jsonl");
 
         std::fs::create_dir_all(
@@ -39,6 +40,7 @@ impl HistoryEntry {
             ended_at: chrono::Local::now().to_rfc3339(),
             phase,
             seconds,
+            session,
         };
 
         let mut bytes = serde_json::to_vec(&entry)?;
@@ -84,13 +86,20 @@ impl HistoryEntry {
         Ok(entries)
     }
 
-    /// Computes the state durations from today's history entries
+    /// Computes the current session's state durations from today's history entries
     pub fn compute_state_durations_from_history(history: &[Self]) -> (u64, u64) {
         let binding = chrono::Local::now().to_rfc3339();
         let today = binding.split('T').next();
         history
             .iter()
             .filter(|entry| entry.ended_at.split('T').next() == today)
+            .filter(|entry| {
+                if let Some(last_entry) = history.last() {
+                    entry.session == last_entry.session
+                } else {
+                    true
+                }
+            })
             .fold((0, 0), |(focused, breaked), entry| match entry.phase {
                 Phase::Focusing => (focused + entry.seconds, breaked),
                 Phase::Breaking => (focused, breaked + entry.seconds),

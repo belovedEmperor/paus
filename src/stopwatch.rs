@@ -37,15 +37,12 @@ pub struct StopwatchState {
     pub data_dir: PathBuf,
     /// ISO 8601 date of the last daemon startup, used to detect day boundaries and reset daily totals.
     pub last_started_date: String,
+    #[serde(default = "default_session")]
+    pub session: u32,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct StopwatchStatus {
-    pub is_paused: bool,
-    pub phase: Phase,
-    pub focused_duration: u64,
-    pub breaked_duration: u64,
-    pub balance: i128,
+fn default_session() -> u32 {
+    1
 }
 
 impl StopwatchState {
@@ -60,6 +57,7 @@ impl StopwatchState {
             break_ratio,
             data_dir,
             last_started_date: chrono::Local::now().date_naive().to_string(),
+            session: 1,
         }
     }
 
@@ -121,7 +119,12 @@ impl StopwatchState {
         let elapsed_seconds = self.get_elapsed_seconds();
         self.update_times(elapsed_seconds);
         if elapsed_seconds > 0 && self.phase != Phase::Idle {
-            let _ = HistoryEntry::append_history(&self.data_dir, self.phase, elapsed_seconds);
+            let _ = HistoryEntry::append_history(
+                &self.data_dir,
+                self.phase,
+                elapsed_seconds,
+                self.session,
+            );
         }
     }
 
@@ -215,6 +218,7 @@ impl StopwatchState {
             focused_duration,
             breaked_duration,
             balance,
+            session: self.session,
         }
     }
 
@@ -225,6 +229,35 @@ impl StopwatchState {
             Phase::Idle => {}
         }
     }
+
+    /// Increments session number, pauses, resets phase, resets times, and saves state.
+    ///
+    /// # Errors
+    ///
+    /// Will error if it fails to save state.
+    pub fn increment_session(&mut self) -> Result<()> {
+        self.pause();
+        self.phase = Phase::Idle;
+        self.session += 1;
+        self.reset_times();
+        self.try_save_state(&self.data_dir)?;
+        Ok(())
+    }
+
+    pub fn reset_times(&mut self) {
+        self.total_focused_seconds = 0;
+        self.total_breaked_seconds = 0;
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct StopwatchStatus {
+    pub is_paused: bool,
+    pub phase: Phase,
+    pub focused_duration: u64,
+    pub breaked_duration: u64,
+    pub balance: i128,
+    pub session: u32,
 }
 
 /// Returns the current Unix timestamp in whole seconds.
@@ -244,6 +277,7 @@ impl StopwatchStatus {
             focused_duration: self.focused_duration / 60,
             breaked_duration: self.breaked_duration / 60,
             balance: self.balance / 60,
+            session: self.session,
         }
     }
 }
@@ -270,6 +304,7 @@ mod tests {
             break_ratio,
             data_dir: config.data_dir,
             last_started_date: String::new(),
+            session: 1,
         }
     }
 
@@ -289,6 +324,7 @@ mod tests {
                 focused_duration: focused,
                 breaked_duration: breaked,
                 balance,
+                session: 1,
             }
         }
 
