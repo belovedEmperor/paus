@@ -1,12 +1,12 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{File, OpenOptions},
     io::{BufRead as _, BufReader, Write as _},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
-use crate::stopwatch::{Phase, StopwatchState};
+use crate::stopwatch::Phase;
 
 /// One completed phase span, as persisted to `history.jsonl`.
 #[derive(Serialize, Deserialize)]
@@ -62,15 +62,14 @@ impl HistoryEntry {
     ///
     /// Returns an error if the data directory cannot be resolved, the directory
     /// cannot be created, or the file cannot be read.
-    pub fn read_history(state: &StopwatchState) -> Result<Vec<Self>> {
-        let path = state.data_dir.join("history.jsonl");
-
+    pub fn read_history(data_dir: &PathBuf) -> Result<Vec<Self>> {
         std::fs::create_dir_all(
-            path.parent()
+            data_dir
+                .parent()
                 .ok_or_else(|| anyhow!("Failed to get data_dir"))?,
         )?;
 
-        let file = match File::open(&path) {
+        let file = match File::open(data_dir) {
             Ok(file) => file,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(vec![]),
             Err(error) => return Err(error.into()),

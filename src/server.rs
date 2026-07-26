@@ -208,7 +208,7 @@ async fn handle_connection(stream: UnixStream, state: &mut StopwatchState) -> Re
             }
         }
         Commands::Compute => {
-            let history = HistoryEntry::read_history(state)?;
+            let history = HistoryEntry::read_history(&state.data_dir)?;
             let (focused, breaked) = HistoryEntry::compute_state_durations_from_history(&history);
             state.total_focused_seconds = focused;
             state.total_breaked_seconds = breaked;
