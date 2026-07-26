@@ -78,6 +78,10 @@ The default ratio is Standard (1/3): 30 minutes of focus earns 10 minutes of bre
 | Hard        | 1/5   | 6 min                   |
 | Grinding    | 1/6   | 5 min                   |
 
+## Sessions
+
+Sessions are an optional feature meant to be used with big breaks. After a big break, `paus session next` will increment to the next session. This will consume the current session's focus and break times.
+
 ## State
 
 Saved to `~/.local/share/paus/state.json` or the directory set in config. On daemon restart, totals carry over but the phase timer resets, so time while the daemon was down is not counted.

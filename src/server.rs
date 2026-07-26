@@ -7,7 +7,7 @@ use tokio::{
 
 use crate::{
     Request, Response,
-    cli::{Commands, DaemonAction, send_command},
+    cli::{Commands, DaemonAction, SessionAction, send_command},
     config::Config,
     history::HistoryEntry,
     stopwatch::{Phase, StopwatchState, now_seconds},
@@ -199,7 +199,7 @@ async fn handle_connection(stream: UnixStream, state: &mut StopwatchState) -> Re
         Commands::Add { duration, phase } => {
             let duration_seconds = duration * 60;
 
-            HistoryEntry::append_history(&state.data_dir, phase, duration_seconds)?;
+            HistoryEntry::append_history(&state.data_dir, phase, duration_seconds, state.session)?;
             state.add_duration(phase, duration_seconds);
 
             Response {
@@ -218,6 +218,16 @@ async fn handle_connection(stream: UnixStream, state: &mut StopwatchState) -> Re
                 data: serde_json::to_value("computed new state durations")?,
             }
         }
+        Commands::Session { action } => match action {
+            SessionAction::Next => {
+                state.increment_session()?;
+
+                Response {
+                    ok: true,
+                    data: serde_json::to_value("incremented session")?,
+                }
+            }
+        },
     };
 
     let mut json = serde_json::to_string(&response)?;
