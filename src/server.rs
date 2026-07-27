@@ -7,7 +7,7 @@ use tokio::{
 
 use crate::{
     Request, Response,
-    cli::{Commands, DaemonAction, SessionAction, send_command},
+    cli::{Commands, DaemonAction, QueryAction, SessionAction, send_command},
     config::Config,
     history::HistoryEntry,
     stopwatch::{Phase, StopwatchState, now_seconds},
@@ -225,6 +225,17 @@ async fn handle_connection(stream: UnixStream, state: &mut StopwatchState) -> Re
                 Response {
                     ok: true,
                     data: serde_json::to_value("incremented session")?,
+                }
+            }
+        },
+        Commands::Query { action } => match action {
+            QueryAction::Today => {
+                let history = HistoryEntry::read_history(&state.data_dir)?;
+                let today_stats = HistoryEntry::query_history_today(&history);
+
+                Response {
+                    ok: true,
+                    data: serde_json::to_value(today_stats)?,
                 }
             }
         },

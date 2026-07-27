@@ -1,6 +1,7 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::HashMap,
     fs::{File, OpenOptions},
     io::{BufRead as _, BufReader, Write as _},
     path::{Path, PathBuf},
@@ -105,6 +106,23 @@ impl HistoryEntry {
                 Phase::Focusing => (focused + entry.seconds, breaked),
                 Phase::Breaking => (focused, breaked + entry.seconds),
                 Phase::Idle => (focused, breaked),
+            })
+    }
+
+    pub fn query_history_today(history: &[Self]) -> HashMap<u32, (u64, u64)> {
+        let binding = chrono::Local::now().to_rfc3339();
+        let today = binding.split('T').next();
+        history
+            .iter()
+            .filter(|entry| entry.ended_at.split('T').next() == today)
+            .fold(HashMap::new(), |mut hash_map, entry| {
+                let (focused, breaked) = hash_map.entry(entry.session).or_insert((0, 0));
+                match entry.phase {
+                    Phase::Focusing => *focused += entry.seconds,
+                    Phase::Breaking => *breaked += entry.seconds,
+                    Phase::Idle => {}
+                }
+                hash_map
             })
     }
 }
