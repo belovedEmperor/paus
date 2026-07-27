@@ -1,3 +1,5 @@
+use std::{collections::HashMap, path::PathBuf};
+
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, json};
@@ -9,7 +11,7 @@ use tokio::{
 use crate::{
     Request, Response,
     server::run_daemon,
-    stopwatch::{Phase, StopwatchStatus},
+    stopwatch::{Phase, StopwatchState, StopwatchStatus},
     tui::run_tui,
 };
 
@@ -77,6 +79,11 @@ By default shows current phase, balance, and pause state dynamically"
         #[command(subcommand)]
         action: SessionAction,
     },
+    #[command(about = "Query history")]
+    Query {
+        #[command(subcommand)]
+        action: QueryAction,
+    },
 }
 
 #[derive(clap::Subcommand, Serialize, Deserialize)]
@@ -91,6 +98,12 @@ pub enum DaemonAction {
 pub enum SessionAction {
     #[command(about = "Next session")]
     Next,
+}
+
+#[derive(clap::Subcommand, Serialize, Deserialize)]
+pub enum QueryAction {
+    #[command(about = "Query today's history")]
+    Today,
 }
 
 /// Dispatches the parsed CLI command to the appropriate handler.
@@ -166,6 +179,49 @@ pub async fn handle_cli(cli: &Cli) -> Result<()> {
                     action: SessionAction::Next,
                 })
                 .await?;
+            }
+        },
+        Some(Commands::Query { action }) => match action {
+            QueryAction::Today => {
+                let raw = send_command(Commands::Query {
+                    action: QueryAction::Today,
+                })
+                .await?;
+                let value: serde_json::Value = serde_json::from_str(&raw)?;
+                let today_stats: HashMap<u32, (u64, u64)> = serde_json::from_value(
+                    value.get("data").ok_or_else(|| anyhow!("no data"))?.clone(),
+                )?;
+
+                let mut sessions: Vec<_> = today_stats.into_iter().collect();
+                sessions.sort_by_key(|(session, _)| *session);
+
+                let format_dummy = |session: u32, focused: u64, breaked: u64| -> String {
+                    let dummy_stopwatch_state = StopwatchState {
+                        is_paused: true,
+                        phase: Phase::Idle,
+                        phase_started_at_seconds: 0,
+                        total_focused_seconds: focused,
+                        total_breaked_seconds: breaked,
+                        break_ratio: crate::stopwatch::BreakRatio::Standard,
+                        data_dir: PathBuf::new(),
+                        last_started_date: String::new(),
+                        session,
+                    };
+                    let dummy_stopwatch_status = dummy_stopwatch_state.get_stopwatch_status();
+                    format_stopwatch_status(&dummy_stopwatch_status, true, true, true)
+                };
+
+                let (total_focused, total_breaked) = sessions.iter().fold(
+                    (0, 0),
+                    |(focused, breaked), (_, (session_focused, session_breaked))| {
+                        (focused + session_focused, breaked + session_breaked)
+                    },
+                );
+
+                for (session, (focused, breaked)) in sessions {
+                    println!("Session {session}: {}", format_dummy(session, focused, breaked));
+                }
+                println!("Total: {}", format_dummy(0, total_focused, total_breaked));
             }
         },
         None => {

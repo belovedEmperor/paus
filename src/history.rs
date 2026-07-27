@@ -1,12 +1,13 @@
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::HashMap,
     fs::{File, OpenOptions},
     io::{BufRead as _, BufReader, Write as _},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
-use crate::stopwatch::{Phase, StopwatchState};
+use crate::stopwatch::Phase;
 
 /// One completed phase span, as persisted to `history.jsonl`.
 #[derive(Serialize, Deserialize)]
@@ -62,8 +63,8 @@ impl HistoryEntry {
     ///
     /// Returns an error if the data directory cannot be resolved, the directory
     /// cannot be created, or the file cannot be read.
-    pub fn read_history(state: &StopwatchState) -> Result<Vec<Self>> {
-        let path = state.data_dir.join("history.jsonl");
+    pub fn read_history(data_dir: &PathBuf) -> Result<Vec<Self>> {
+        let path = data_dir.join("history.jsonl");
 
         std::fs::create_dir_all(
             path.parent()
@@ -105,6 +106,23 @@ impl HistoryEntry {
                 Phase::Focusing => (focused + entry.seconds, breaked),
                 Phase::Breaking => (focused, breaked + entry.seconds),
                 Phase::Idle => (focused, breaked),
+            })
+    }
+
+    pub fn query_history_today(history: &[Self]) -> HashMap<u32, (u64, u64)> {
+        let binding = chrono::Local::now().to_rfc3339();
+        let today = binding.split('T').next();
+        history
+            .iter()
+            .filter(|entry| entry.ended_at.split('T').next() == today)
+            .fold(HashMap::new(), |mut hash_map, entry| {
+                let (focused, breaked) = hash_map.entry(entry.session).or_insert((0, 0));
+                match entry.phase {
+                    Phase::Focusing => *focused += entry.seconds,
+                    Phase::Breaking => *breaked += entry.seconds,
+                    Phase::Idle => {}
+                }
+                hash_map
             })
     }
 }
