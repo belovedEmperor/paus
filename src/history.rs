@@ -63,13 +63,14 @@ impl HistoryEntry {
     /// Returns an error if the data directory cannot be resolved, the directory
     /// cannot be created, or the file cannot be read.
     pub fn read_history(data_dir: &PathBuf) -> Result<Vec<Self>> {
+        let path = data_dir.join("history.jsonl");
+
         std::fs::create_dir_all(
-            data_dir
-                .parent()
+            path.parent()
                 .ok_or_else(|| anyhow!("Failed to get data_dir"))?,
         )?;
 
-        let file = match File::open(data_dir) {
+        let file = match File::open(&path) {
             Ok(file) => file,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(vec![]),
             Err(error) => return Err(error.into()),
