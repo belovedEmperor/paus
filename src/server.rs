@@ -44,11 +44,11 @@ pub async fn run_daemon() -> Result<()> {
             StopwatchState::new(config.break_ratio, config.data_dir.clone())
         }
         Ok(mut state) => {
-            state.break_ratio = config.break_ratio.clone();
+            state.break_ratio.clone_from(&config.break_ratio);
             state.phase = Phase::Idle;
             state.is_paused = true;
             state.phase_started_at_seconds = now_seconds();
-            state.data_dir = config.data_dir.clone();
+            state.data_dir.clone_from(&config.data_dir);
 
             state
         }
@@ -113,25 +113,38 @@ async fn handle_connection(stream: UnixStream, state: &mut StopwatchState) -> Re
 
     let request: Request = serde_json::from_str(&line)?;
 
-    let response = match request.command {
-        Commands::Daemon {
-            action: DaemonAction::Run,
-        } => return Err(anyhow!("daemon run is client only")),
-        Commands::Daemon {
-            action: DaemonAction::Stop,
-        } => {
-            state.update_times_and_append_history();
-            state.try_save_state(&state.data_dir)?;
-            let mut json = serde_json::to_string(&Response {
-                ok: true,
-                data: serde_json::to_value("stopping")?,
-            })?;
-            json.push('\n');
+    if let Commands::Daemon { action } = request.command {
+        return match action {
+            DaemonAction::Run => Err(anyhow!("daemon run is client only")),
+            DaemonAction::Stop => {
+                state.update_times_and_append_history();
+                state.try_save_state(&state.data_dir)?;
+                let mut json = serde_json::to_string(&Response {
+                    ok: true,
+                    data: serde_json::to_value("stopping")?,
+                })?;
+                json.push('\n');
 
-            writer.write_all(json.as_bytes()).await?;
+                writer.write_all(json.as_bytes()).await?;
 
-            return Ok(true);
-        }
+                Ok(true)
+            }
+        };
+    }
+
+    let response = build_response(request.command, state)?;
+
+    let mut json = serde_json::to_string(&response)?;
+    json.push('\n');
+
+    writer.write_all(json.as_bytes()).await?;
+
+    Ok(false)
+}
+
+fn build_response(command: Commands, state: &mut StopwatchState) -> Result<Response> {
+    Ok(match command {
+        Commands::Daemon { .. } => return Err(anyhow!("daemon commands handled earlier")),
         Commands::Status { .. } => {
             let stopwatch_status = state.get_stopwatch_status();
 
@@ -143,18 +156,12 @@ async fn handle_connection(stream: UnixStream, state: &mut StopwatchState) -> Re
         Commands::Focus => {
             state.start_focus();
 
-            Response {
-                ok: true,
-                data: serde_json::to_value("started focusing")?,
-            }
+            build_response_with_string("started focusing")
         }
         Commands::Break => {
             state.start_break();
 
-            Response {
-                ok: true,
-                data: serde_json::to_value("started breaking")?,
-            }
+            build_response_with_string("started breaking")
         }
         Commands::TogglePhase => {
             state.toggle_phase();
@@ -171,18 +178,12 @@ async fn handle_connection(stream: UnixStream, state: &mut StopwatchState) -> Re
         Commands::Pause => {
             state.pause();
 
-            Response {
-                ok: true,
-                data: serde_json::to_value("paused")?,
-            }
+            build_response_with_string("paused")
         }
         Commands::Unpause => {
             state.unpause();
 
-            Response {
-                ok: true,
-                data: serde_json::to_value("unpaused")?,
-            }
+            build_response_with_string("unpaused")
         }
         Commands::TogglePause => {
             state.toggle_pause();
@@ -197,15 +198,12 @@ async fn handle_connection(stream: UnixStream, state: &mut StopwatchState) -> Re
             }
         }
         Commands::Add { duration, phase } => {
-            let duration_seconds = duration * 60;
+            let duration_seconds = duration.saturating_mul(60);
 
             HistoryEntry::append_history(&state.data_dir, phase, duration_seconds, state.session)?;
             state.add_duration(phase, duration_seconds);
 
-            Response {
-                ok: true,
-                data: serde_json::to_value("added history entry")?,
-            }
+            build_response_with_string("added history entry")
         }
         Commands::Compute => {
             let history = HistoryEntry::read_history(&state.data_dir)?;
@@ -213,10 +211,7 @@ async fn handle_connection(stream: UnixStream, state: &mut StopwatchState) -> Re
             state.total_focused_seconds = focused;
             state.total_breaked_seconds = breaked;
 
-            Response {
-                ok: true,
-                data: serde_json::to_value("computed new state durations")?,
-            }
+            build_response_with_string("computed new state durations")
         }
         Commands::Session { action } => match action {
             SessionAction::Next => {
@@ -239,12 +234,12 @@ async fn handle_connection(stream: UnixStream, state: &mut StopwatchState) -> Re
                 }
             }
         },
-    };
+    })
+}
 
-    let mut json = serde_json::to_string(&response)?;
-    json.push('\n');
-
-    writer.write_all(json.as_bytes()).await?;
-
-    Ok(false)
+fn build_response_with_string(string: &str) -> Response {
+    Response {
+        ok: true,
+        data: serde_json::Value::from(string),
+    }
 }

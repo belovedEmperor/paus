@@ -1,10 +1,10 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     fs::{File, OpenOptions},
     io::{BufRead as _, BufReader, Write as _},
-    path::{Path, PathBuf},
+    path::Path,
 };
 
 use crate::stopwatch::Phase;
@@ -63,7 +63,7 @@ impl HistoryEntry {
     ///
     /// Returns an error if the data directory cannot be resolved, the directory
     /// cannot be created, or the file cannot be read.
-    pub fn read_history(data_dir: &PathBuf) -> Result<Vec<Self>> {
+    pub fn read_history(data_dir: &Path) -> Result<Vec<Self>> {
         let path = data_dir.join("history.jsonl");
 
         std::fs::create_dir_all(
@@ -89,6 +89,7 @@ impl HistoryEntry {
     }
 
     /// Computes the current session's state durations from today's history entries
+    #[must_use]
     pub fn compute_state_durations_from_history(history: &[Self]) -> (u64, u64) {
         let binding = chrono::Local::now().to_rfc3339();
         let today = binding.split('T').next();
@@ -96,19 +97,18 @@ impl HistoryEntry {
             .iter()
             .filter(|entry| entry.ended_at.split('T').next() == today)
             .filter(|entry| {
-                if let Some(last_entry) = history.last() {
-                    entry.session == last_entry.session
-                } else {
-                    true
-                }
+                history
+                    .last()
+                    .is_none_or(|last_entry| entry.session == last_entry.session)
             })
             .fold((0, 0), |(focused, breaked), entry| match entry.phase {
-                Phase::Focusing => (focused + entry.seconds, breaked),
-                Phase::Breaking => (focused, breaked + entry.seconds),
+                Phase::Focusing => (focused.saturating_add(entry.seconds), breaked),
+                Phase::Breaking => (focused, breaked.saturating_add(entry.seconds)),
                 Phase::Idle => (focused, breaked),
             })
     }
 
+    #[must_use]
     pub fn query_history_today(history: &[Self]) -> HashMap<u32, (u64, u64)> {
         let binding = chrono::Local::now().to_rfc3339();
         let today = binding.split('T').next();
@@ -118,8 +118,8 @@ impl HistoryEntry {
             .fold(HashMap::new(), |mut hash_map, entry| {
                 let (focused, breaked) = hash_map.entry(entry.session).or_insert((0, 0));
                 match entry.phase {
-                    Phase::Focusing => *focused += entry.seconds,
-                    Phase::Breaking => *breaked += entry.seconds,
+                    Phase::Focusing => *focused = focused.saturating_add(entry.seconds),
+                    Phase::Breaking => *breaked = breaked.saturating_add(entry.seconds),
                     Phase::Idle => {}
                 }
                 hash_map

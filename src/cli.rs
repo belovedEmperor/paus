@@ -192,36 +192,9 @@ pub async fn handle_cli(cli: &Cli) -> Result<()> {
                     value.get("data").ok_or_else(|| anyhow!("no data"))?.clone(),
                 )?;
 
-                let mut sessions: Vec<_> = today_stats.into_iter().collect();
-                sessions.sort_by_key(|(session, _)| *session);
+                let sessions: Vec<_> = today_stats.into_iter().collect();
 
-                let format_dummy = |session: u32, focused: u64, breaked: u64| -> String {
-                    let dummy_stopwatch_state = StopwatchState {
-                        is_paused: true,
-                        phase: Phase::Idle,
-                        phase_started_at_seconds: 0,
-                        total_focused_seconds: focused,
-                        total_breaked_seconds: breaked,
-                        break_ratio: crate::stopwatch::BreakRatio::Standard,
-                        data_dir: PathBuf::new(),
-                        last_started_date: String::new(),
-                        session,
-                    };
-                    let dummy_stopwatch_status = dummy_stopwatch_state.get_stopwatch_status();
-                    format_stopwatch_status(&dummy_stopwatch_status, true, true, true)
-                };
-
-                let (total_focused, total_breaked) = sessions.iter().fold(
-                    (0, 0),
-                    |(focused, breaked), (_, (session_focused, session_breaked))| {
-                        (focused + session_focused, breaked + session_breaked)
-                    },
-                );
-
-                for (session, (focused, breaked)) in sessions {
-                    println!("Session {session}: {}", format_dummy(session, focused, breaked));
-                }
-                println!("Total: {}", format_dummy(0, total_focused, total_breaked));
+                handle_today_stats(sessions);
             }
         },
         None => {
@@ -232,17 +205,58 @@ pub async fn handle_cli(cli: &Cli) -> Result<()> {
     Ok(())
 }
 
+fn handle_today_stats(mut sessions: Vec<(u32, (u64, u64))>) {
+    let format_dummy = |session: u32, focused: u64, breaked: u64| -> String {
+        let dummy_stopwatch_state = StopwatchState {
+            is_paused: true,
+            phase: Phase::Idle,
+            phase_started_at_seconds: 0,
+            total_focused_seconds: focused,
+            total_breaked_seconds: breaked,
+            break_ratio: crate::stopwatch::BreakRatio::Standard,
+            data_dir: PathBuf::new(),
+            last_started_date: String::new(),
+            session,
+        };
+        let dummy_stopwatch_status = dummy_stopwatch_state.get_stopwatch_status();
+        format_stopwatch_status(&dummy_stopwatch_status, true, true, true)
+    };
+
+    let (total_focused, total_breaked) = sessions.iter().fold(
+        (0_u64, 0_u64),
+        |(focused, breaked), (_, (session_focused, session_breaked))| {
+            (
+                focused.saturating_add(*session_focused),
+                breaked.saturating_add(*session_breaked),
+            )
+        },
+    );
+
+    sessions.sort_by_key(|(session, _)| *session);
+
+    for (session, (focused, breaked)) in sessions {
+        println!(
+            "Session {session}: {}",
+            format_dummy(session, focused, breaked)
+        );
+    }
+    println!("Total: {}", format_dummy(0, total_focused, total_breaked));
+}
+
 /// Formats seconds as `HH:MM` for display.
+#[must_use]
 pub fn format_focused_duration(focused_duration: u64) -> String {
     format!("{:02}:{:02}", focused_duration / 60, focused_duration % 60)
 }
 
 /// Formats seconds as `HH:MM` for display.
+#[must_use]
 pub fn format_breaked_duration(breaked_duration: u64) -> String {
     format!("{:02}:{:02}", breaked_duration / 60, breaked_duration % 60)
 }
 
 /// Formats a signed minute balance as `[-]HH:MM`.
+#[must_use]
 pub fn format_balance(balance: i128) -> String {
     let mut negative = false;
 
