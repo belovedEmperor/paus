@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::{
     path::{Path, PathBuf},
@@ -26,6 +26,18 @@ pub enum BreakRatio {
     Grinding = 6,
 }
 
+impl BreakRatio {
+    const fn as_i128(&self) -> i128 {
+        match self {
+            Self::Lazy => 2,
+            Self::Standard => 3,
+            Self::Industrious => 4,
+            Self::Hard => 5,
+            Self::Grinding => 6,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct StopwatchState {
     /// Whether the stopwatch is currently paused (not accumulating time).
@@ -49,12 +61,13 @@ pub struct StopwatchState {
     pub session: u32,
 }
 
-fn default_session() -> u32 {
+const fn default_session() -> u32 {
     1
 }
 
 impl StopwatchState {
     /// Creates a new, paused [`StopwatchState`] in [`Phase::Idle`] with zeroed totals and today's date.
+    #[must_use]
     pub fn new(break_ratio: BreakRatio, data_dir: PathBuf) -> Self {
         Self {
             is_paused: true,
@@ -112,10 +125,12 @@ impl StopwatchState {
     pub fn update_times(&mut self, elapsed_seconds: u64) {
         match self.phase {
             Phase::Focusing => {
-                self.total_focused_seconds += elapsed_seconds;
+                self.total_focused_seconds =
+                    self.total_focused_seconds.saturating_add(elapsed_seconds);
             }
             Phase::Breaking => {
-                self.total_breaked_seconds += elapsed_seconds;
+                self.total_breaked_seconds =
+                    self.total_breaked_seconds.saturating_add(elapsed_seconds);
             }
             Phase::Idle => {}
         }
@@ -141,11 +156,12 @@ impl StopwatchState {
     /// Returns seconds elapsed in the current phase since the last update.
     ///
     /// Returns `0` if paused.
+    #[must_use]
     pub fn get_elapsed_seconds(&self) -> u64 {
         if self.is_paused {
             0
         } else {
-            now_seconds() - self.phase_started_at_seconds
+            now_seconds().saturating_sub(self.phase_started_at_seconds)
         }
     }
 
@@ -204,23 +220,26 @@ impl StopwatchState {
     }
 
     /// Returns a snapshot of current totals and balance without mutating state.
+    #[must_use]
     pub fn get_stopwatch_status(&self) -> StopwatchStatus {
         let elapsed = self.get_elapsed_seconds();
 
         let (focused_duration, breaked_duration) = match self.phase {
             Phase::Focusing => (
-                self.total_focused_seconds + elapsed,
+                self.total_focused_seconds.saturating_add(elapsed),
                 self.total_breaked_seconds,
             ),
             Phase::Breaking => (
                 self.total_focused_seconds,
-                self.total_breaked_seconds + elapsed,
+                self.total_breaked_seconds.saturating_add(elapsed),
             ),
             Phase::Idle => (self.total_focused_seconds, self.total_breaked_seconds),
         };
 
-        let balance = (focused_duration as i128 / self.break_ratio.clone() as i128)
-            - breaked_duration as i128;
+        let balance = i128::from(focused_duration)
+            .checked_div(self.break_ratio.as_i128())
+            .unwrap_or(0)
+            .saturating_sub(i128::from(breaked_duration));
 
         StopwatchStatus {
             is_paused: self.is_paused,
@@ -233,10 +252,16 @@ impl StopwatchState {
     }
 
     /// Adds `duration_seconds` directly to the given phase's total, bypassing the phase timer.
-    pub fn add_duration(&mut self, phase: Phase, duration_seconds: u64) {
+    pub const fn add_duration(&mut self, phase: Phase, duration_seconds: u64) {
         match phase {
-            Phase::Focusing => self.total_focused_seconds += duration_seconds,
-            Phase::Breaking => self.total_breaked_seconds += duration_seconds,
+            Phase::Focusing => {
+                self.total_focused_seconds =
+                    self.total_focused_seconds.saturating_add(duration_seconds);
+            }
+            Phase::Breaking => {
+                self.total_breaked_seconds =
+                    self.total_breaked_seconds.saturating_add(duration_seconds);
+            }
             Phase::Idle => {}
         }
     }
@@ -249,14 +274,14 @@ impl StopwatchState {
     pub fn increment_session(&mut self) -> Result<()> {
         self.pause();
         self.phase = Phase::Idle;
-        self.session += 1;
+        self.session = self.session.saturating_add(1);
         self.reset_times();
         self.try_save_state(&self.data_dir)?;
         Ok(())
     }
 
     /// Zeroes accumulated focus and break totals.
-    pub fn reset_times(&mut self) {
+    pub const fn reset_times(&mut self) {
         self.total_focused_seconds = 0;
         self.total_breaked_seconds = 0;
     }
@@ -275,16 +300,18 @@ pub struct StopwatchStatus {
 }
 
 /// Returns the current Unix timestamp in whole seconds.
+#[must_use]
 pub fn now_seconds() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .expect("Current system time should be after 1970-01-01 00:00:00 UTC")
+        .unwrap_or_default()
         .as_secs()
 }
 
 impl StopwatchStatus {
     /// Returns a copy with all time fields converted from seconds to minutes (truncating).
-    pub fn to_minutes(&self) -> Self {
+    #[must_use]
+    pub const fn to_minutes(&self) -> Self {
         Self {
             is_paused: self.is_paused,
             phase: self.phase,
@@ -388,7 +415,7 @@ mod tests {
         fn sets_is_paused_to_false() {
             let mut state = make_standard_stopwatch_state();
             state.start_focus();
-            assert_eq!(state.is_paused, false);
+            assert!(!state.is_paused);
         }
     }
 
@@ -406,7 +433,7 @@ mod tests {
         fn sets_is_paused_to_false() {
             let mut state = make_standard_stopwatch_state();
             state.start_break();
-            assert_eq!(state.is_paused, false);
+            assert!(!state.is_paused);
         }
     }
 
@@ -438,7 +465,7 @@ mod tests {
         fn sets_is_paused_to_false() {
             let mut state = make_stopwatch_state(true, Phase::Idle, 0, 0, BreakRatio::Standard);
             state.toggle_phase();
-            assert_eq!(state.is_paused, false);
+            assert!(!state.is_paused);
         }
     }
 

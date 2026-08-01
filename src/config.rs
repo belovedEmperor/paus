@@ -24,7 +24,7 @@ impl Default for Config {
     fn default() -> Self {
         let data_dir = dirs::data_local_dir()
             .or_else(|| dirs::home_dir().map(|home_dir| home_dir.join(".local/share")))
-            .expect("No home directory found")
+            .unwrap_or_else(|| PathBuf::from("."))
             .join("paus");
         Self {
             break_ratio: BreakRatio::Standard,
@@ -37,6 +37,7 @@ impl Config {
     /// Returns the expected config file path: `$XDG_CONFIG_HOME/paus/config.json`.
     ///
     /// Returns `None` if the platform config directory cannot be determined.
+    #[must_use]
     pub fn path() -> Option<PathBuf> {
         dirs::config_dir().map(|directory| directory.join("paus").join("config.json"))
     }
@@ -70,6 +71,7 @@ impl Config {
     ///
     /// Silently returns defaults if the config directory is unavailable, the file does not
     /// exist, cannot be read, or contains invalid JSON. A missing file is not an error.
+    #[must_use]
     pub fn load() -> Self {
         let Some(path) = Self::path() else {
             return Self::default();
