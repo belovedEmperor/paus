@@ -18,6 +18,7 @@ pub enum Phase {
 /// Ratio of focus seconds to break seconds earned; higher means more focus required per minute of break.
 #[derive(Clone, Serialize, Deserialize, Default)]
 pub enum BreakRatio {
+    Equal = 1,
     Lazy = 2,
     #[default]
     Standard = 3,
@@ -29,6 +30,7 @@ pub enum BreakRatio {
 impl BreakRatio {
     const fn as_i128(&self) -> i128 {
         match self {
+            Self::Equal => 1,
             Self::Lazy => 2,
             Self::Standard => 3,
             Self::Industrious => 4,
@@ -398,6 +400,48 @@ mod tests {
             let status = state.get_stopwatch_status();
             // balance = (2100 / 3) - 300 = 400
             assert_eq!(status.balance, 400);
+        }
+
+        #[test]
+        fn balance_is_correct_with_equal_ratio() {
+            let state = make_stopwatch_state(true, Phase::Focusing, 2100, 300, BreakRatio::Equal);
+            let status = state.get_stopwatch_status();
+            // balance = (2100 / 1) - 300 = 1800
+            assert_eq!(status.balance, 1800);
+        }
+
+        #[test]
+        fn balance_is_correct_with_lazy_ratio() {
+            let state = make_stopwatch_state(true, Phase::Focusing, 2100, 300, BreakRatio::Lazy);
+            let status = state.get_stopwatch_status();
+            // balance = (2100 / 2) - 300 = 750
+            assert_eq!(status.balance, 750);
+        }
+
+        #[test]
+        fn balance_is_correct_with_industrious_ratio() {
+            let state =
+                make_stopwatch_state(true, Phase::Focusing, 2100, 300, BreakRatio::Industrious);
+            let status = state.get_stopwatch_status();
+            // balance = (2100 / 4) - 300 = 225
+            assert_eq!(status.balance, 225);
+        }
+
+        #[test]
+        fn balance_is_correct_with_hard_ratio() {
+            let state = make_stopwatch_state(true, Phase::Focusing, 2100, 300, BreakRatio::Hard);
+            let status = state.get_stopwatch_status();
+            // balance = (2100 / 5) - 300 = 120
+            assert_eq!(status.balance, 120);
+        }
+
+        #[test]
+        fn balance_is_correct_with_grinding_ratio() {
+            let state =
+                make_stopwatch_state(true, Phase::Focusing, 2100, 300, BreakRatio::Grinding);
+            let status = state.get_stopwatch_status();
+            // balance = (2100 / 6) - 300 = 50
+            assert_eq!(status.balance, 50);
         }
     }
 
