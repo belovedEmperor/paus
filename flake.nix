@@ -15,19 +15,55 @@
       cargoLock.lockFile = ./Cargo.lock;
     };
 
-    homeManagerModules.default = {pkgs, ...}: let
-      paus-pkg = self.packages.${pkgs.system}.default;
+    homeManagerModules.default = {
+      self,
+      lib,
+      pkgs,
+      config,
+      ...
+    }: let
+      pausPkg = self.packages.${pkgs.system}.default;
     in {
-      systemd.user.services.paus = {
-        Unit.Description = "paus stopwatch daemon";
-        Install.WantedBy = ["default.target"]; # Start on login
-        Service = {
-          ExecStart = "${paus-pkg}/bin/paus daemon run";
-          Restart = "on-failure";
+      options.services.paus = {
+        enable = lib.mkEnableOption "the paus stopwatch daemon";
+
+        breakRatio = lib.mkOption {
+          type = lib.types.enum [
+            "Equal"
+            "Lazy"
+            "Standard"
+            "Industrious"
+            "Hard"
+            "Grinding"
+          ];
+          default = "Standard";
+          description = "Break earned per focus";
+        };
+
+        dataDir = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          description = "State dir";
         };
       };
 
-      home.packages = [paus-pkg];
+      config = lib.mkIf config.services.paus.enable {
+        home.packages = [pausPkg];
+
+        home.file.".config/paus/config.json".text = builtins.toJSON (
+          {break_ratio = config.services.paus.breakRatio;}
+          // lib.optionalAttrs (config.services.paus.dataDir != null) {data_dir = config.services.paus.dataDir;}
+        );
+
+        systemd.user.services.paus = {
+          Unit.Description = "paus stopwatch daemon";
+          Install.WantedBy = ["default.target"];
+          Service = {
+            ExecStart = "${pausPkg}/bin/paus daemon run";
+            Restart = "on-failure";
+          };
+        };
+      };
     };
   };
 }
