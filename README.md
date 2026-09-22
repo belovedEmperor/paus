@@ -72,6 +72,7 @@ The default ratio is Standard (1/3): 30 minutes of focus earns 10 minutes of bre
 
 | Name        | Ratio | Break earned per 30 min |
 |-------------|-------|-------------------------|
+| Equal        | 1/1   | 30 min                  |
 | Lazy        | 1/2   | 15 min                  |
 | Standard    | 1/3   | 10 min                  |
 | Industrious | 1/4   | 7.5 min                 |
